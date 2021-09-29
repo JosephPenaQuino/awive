@@ -1,18 +1,10 @@
 import cv2 as cv
+import utils
 from matplotlib import pyplot as plt
 import numpy as np
 
 imageDataset = '/home/joseph/Documents/Thesis/Dataset/ssivDataset/images'
 imageLength = 372
-
-
-def image_path(i):
-    i += 200
-    return f'{imageDataset}/out-{i:03}.jpg'
-
-
-def load_image(index):
-    return cv.imread(image_path(index), cv.IMREAD_GRAYSCALE)
 
 
 def image_mean():
@@ -24,11 +16,12 @@ def image_mean():
 
 
 def main():
+    image_loader = ImageLoader(imageDataset)
     imMean = image_mean()
     cv.imshow('image mean', imMean)
     # for i in range(3):
     #     cv.imshow(f'frame: {i:03}', load_image(i) - imMean)
-    im = load_image(0)
+    im = image_loader.load(0)
     for i in range(10, 100, 20):
         s = (imMean*(i/100)).astype(np.uint8)
         cv.imshow(f'k = {i:02}%', im-s)
