@@ -1,10 +1,11 @@
 import cv2 as cv
-import utils
+from utils import ImageLoader
 from matplotlib import pyplot as plt
 import numpy as np
 
 imageDataset = '/home/joseph/Documents/Thesis/Dataset/ssivDataset/images'
 imageLength = 372
+image_offset = 200
 
 
 def image_mean():
@@ -16,7 +17,7 @@ def image_mean():
 
 
 def main():
-    image_loader = ImageLoader(imageDataset)
+    image_loader = ImageLoader(imageDataset, image_offset)
     imMean = image_mean()
     cv.imshow('image mean', imMean)
     # for i in range(3):
