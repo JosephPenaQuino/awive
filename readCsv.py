@@ -33,22 +33,30 @@ def main():
     rangeVal = maxVal - minVal
 
     # remove randomly
-    np.random.seed(10)
-    remove_n = 100
-    drop_indices = np.random.choice(df.index, remove_n, replace=False)
-    df = df.drop(drop_indices)
+    # np.random.seed(10)
+    # remove_n = 100
+    # drop_indices = np.random.choice(df.index, remove_n, replace=False)
+    # df = df.drop(drop_indices)
 
     for i, val in df.iterrows():
         v =(val['v']-minVal)/rangeVal
         start_point = (int(val['x']), int(val['y']))
         maxI = 400
-        end_point = (int(val['x']-maxI*v), int(val['y']-maxI*v))
+        end_point = (int(val['x'] - maxI * v), int(val['y'] - maxI * v))
         rgb = cmap(v)
         color = (255*rgb[0], 255*rgb[1], 255*rgb[2])
         thickness = 20
         im = cv.arrowedLine(im, start_point, end_point, color, thickness)
 
-    new_shape = (im.shape[0] // resize_ratio, im.shape[1] // resize_ratio)
+
+    width = im.shape[0]
+    height = im.shape[1]
+    # M = cv.getRotationMatrix2D((width//2, height//2), 44, 1.0)
+    M = cv.getRotationMatrix2D((width//2, height//2), 44+180, 1.0)
+    im = cv.warpAffine(im, M, (width, height))
+    im = im[:2880, 2268:4447]
+
+    new_shape = (width // resize_ratio, height // resize_ratio)
     im = cv.resize(im, new_shape)
     cv.imshow('main', im)
     cv.waitKey(0) 
