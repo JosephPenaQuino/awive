@@ -1,3 +1,6 @@
-*.mp4
-*.npy
 __pycache__
+images
+*.npy
+*.bmp
+*.avi
+*.mp4
