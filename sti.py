@@ -1,9 +1,10 @@
 import cv2 as cv
+import sys
 from matplotlib import pyplot as plt
 import numpy as np
+import json
+from utils import ImageLoader
 
-imagePath = '/home/joseph/Documents/Thesis/Dataset/ssivDataset/video.mp4'
-imageDataset = '/home/joseph/Documents/Thesis/Dataset/ssivDataset/images'
 
 def adjust_gamma(image, gamma=1.0):
     # build a lookup table mapping the pixel values [0, 255] to
@@ -14,31 +15,26 @@ def adjust_gamma(image, gamma=1.0):
     # apply gamma correction using the lookup table
     return cv.LUT(image, table)
 
-def main():
-    cap = cv.VideoCapture(imagePath)
+def main(option):
+    # Read configuration
+    conf = json.load(open('conf/sti.json'))[option]
+    video_path = conf['video_path']
+
+    # Read video
+    cap = cv.VideoCapture(video_path)
     ret, frame = cap.read()
     width = frame.shape[0]
     height = frame.shape[1]
-    w1 = int(100+width/2)
-    w2 = int(2*width/2)
-    h1 = int(height/2)
-    h2 = int(2*height/2)
-    # h1 = 800
-    # h2 = 2432
-    # w1 = 646
-    # w2 = 1423
-    h1 = 300
-    h2 = 700
-    w1 = 360
-    w2 = 660
-
+    h1 = conf['roi']['h1']
+    h2 = conf['roi']['h2']
+    w1 = conf['roi']['w1']
+    w2 = conf['roi']['w2']
     w = w2 - w1
     h = h2 - h1
 
     frameNumber = 1
 
     sti = [np.empty((1, h), dtype=np.uint8) for i in range(frameNumber)]
-    # sti = np.zeros((1, 853))
     clahe = cv.createCLAHE(clipLimit=3.0, tileGridSize=(4, 4))
 
 
@@ -59,6 +55,7 @@ def main():
         imm = imm.astype(int)
         imMean += imm
         cnt += 1
+
     print('cnt:', cnt)
     print('imMean:', np.max(imMean), np.min(imMean))
     imMean = (imMean / cnt) * 1
@@ -66,7 +63,7 @@ def main():
     print('imMean:', np.max(imMean), np.min(imMean))
     cv.imshow('image mean', imMean)
 
-    cap = cv.VideoCapture(imagePath)
+    cap = cv.VideoCapture(video_path)
     for i in range(55):
         ret, frame = cap.read()
 
@@ -100,4 +97,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    option = 'd1'
+    if len(sys.argv) > 1:
+        option = sys.argv[1]
+    main(option)
