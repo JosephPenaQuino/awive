@@ -28,6 +28,19 @@ class STIV():
     def stis(self, idx):
         return self._stis[idx]
 
+def scaleImage(image):
+    image = image.astype('float')
+    mmin = np.max(image)
+    r = mmin - np.min(image)
+    image = 255.0*((image - np.min(image))/r)
+    return image.astype('uint8')
+
+def applyMean(im, imMean, ratio):
+        tmpMean = imMean * ratio 
+        tmpMean = tmpMean.astype('uint8')
+        im = im - tmpMean
+        return scaleImage(im)
+
 def adjust_gamma(image, gamma=1.0):
     # build a lookup table mapping the pixel values [0, 255] to
     # their adjusted gamma values
@@ -81,11 +94,12 @@ def main(option):
 
     while loader.has_images():
         im = formatter.apply(loader.read())
-        # imm -= imMean
+        # im = applyMean(im, imMean, 0.5)
+
         # imm = clahe.apply(imm)
         # imm = (255.0*(((imm - 80).astype("uint8")) / 120)).astype("uint8")
         # imm = adjust_gamma(imm, 0.9)
-        # np.save("tmp2.npy", imm)
+
         stiv.append(im)
     
     for i in range(frameNumber):
