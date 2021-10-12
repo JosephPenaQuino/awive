@@ -79,7 +79,8 @@ class Formatter:
 
     def apply(self, image):
         # Rotate image
-        image = cv.warpAffine(image, self._M, (self._width, self._height))
+        if self._grades != 0:
+            image = cv.warpAffine(image, self._M, (self._width, self._height))
         # Crop image
         image = image[self._w1:self._w2, self._h1:self._h2]
         # To gray
