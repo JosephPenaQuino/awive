@@ -49,12 +49,15 @@ def main(option):
     im = loader.read()
 
     formatter = Formatter(im.shape,
-                         0,
+                         conf['rotate_image'],
                          1.0,
                          conf['roi']['w1'],
                          conf['roi']['w2'],
                          conf['roi']['h1'],
                          conf['roi']['h2'])
+    im = formatter.apply(im)
+    w = im.shape[0]
+    h = im.shape[1]
 
 
     # Get average 

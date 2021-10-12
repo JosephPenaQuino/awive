@@ -43,7 +43,7 @@ class VideoLoader(Loader):
         self._image_read = False # Check if the current images was read
 
         # Skip offset
-        for _ in range(self._offset):
+        for _ in range(self._offset+1):
             if self.has_images():
                 self.read()
 
