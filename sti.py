@@ -64,13 +64,16 @@ def main(option):
     # Set formatter
     im = loader.read()
     formatter = Formatter(im.shape,
-                         -25,
+                         conf['rotate_image'],
                          1.0,
                          conf['roi']['w1'],
                          conf['roi']['w2'],
                          conf['roi']['h1'],
                          conf['roi']['h2'])
 
+    im = formatter.apply(im)
+    w = im.shape[0]
+    h = im.shape[1]
 
     # Get average 
     imMean =  np.zeros((w, h), dtype=np.int64)
