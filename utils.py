@@ -64,7 +64,7 @@ class VideoLoader(Loader):
         self._cap.release()
 
 class Formatter:
-    def __init__(self, shape, grades, a, w1, w2, h1, h2):
+    def __init__(self, shape, grades, a, w1, w2, h1, h2, gray=False):
         self._width = shape[0]
         self._height = shape[1]
         self._grades = grades
@@ -76,6 +76,7 @@ class Formatter:
         self._w2 = w2
         self._h1 = h1
         self._h2 = h2
+        self._gray = gray
 
     def apply(self, image):
         # Rotate image
@@ -84,5 +85,6 @@ class Formatter:
         # Crop image
         image = image[self._w1:self._w2, self._h1:self._h2]
         # To gray
-        image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        if self._gray:
+            image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
         return image
