@@ -64,7 +64,7 @@ class VideoLoader(Loader):
         self._cap.release()
 
 class Formatter:
-    def __init__(self, shape, grades, a, w1, w2, h1, h2, gray=False):
+    def __init__(self, shape, grades, a, w1, w2, h1, h2, gray=True):
         self._width = shape[0]
         self._height = shape[1]
         self._grades = grades
