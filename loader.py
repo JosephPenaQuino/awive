@@ -1,8 +1,26 @@
 '''Loader of videos of frames'''
 
+import os
+import json
 import abc
-import cv2 as cv
 import numpy as np
+import cv2 as cv
+
+
+def get_loader(config_path, video_identifier):
+    '''Return a ImageLoader or VideoLoader class
+    Read config path and if the image dataset folder is full the function
+    returns a ImageLoader, if not, then returns a VideoLoader
+    '''
+    # check if in image folder there are located the extracted images
+    with open(config_path) as json_file:
+        config = json.load(json_file)[video_identifier]
+
+    image_folder_path = config['image_dataset']
+    print('image path:', image_folder_path)
+    if any(os.scandir(image_folder_path)):
+        return ImageLoader(config)
+    return VideoLoader(config)
 
 
 class Loader(metaclass=abc.ABCMeta):
@@ -18,14 +36,19 @@ class Loader(metaclass=abc.ABCMeta):
     def read(self):
         '''Read a new image from the source'''
 
+    @abc.abstractmethod
+    def end(self):
+        '''Free all resources'''
+
+
 class ImageLoader:
     '''Loader that loads images from a directory'''
 
-    def __init__(self, imageDataset, prefix, digits, offset=0):
-        super().__init__(offset)
-        self._image_dataset = imageDataset
-        self._prefix = prefix
-        self._digits = digits
+    def __init__(self, config: dict):
+        super().__init__(config['image_number_offset'])
+        self._image_dataset = config['image_dataset']
+        self._prefix = config['image_path_prefix']
+        self._digits = config['image_path_digits']
 
     def path(self, i):
         i += self._offset
@@ -43,9 +66,9 @@ class ImageLoader:
 class VideoLoader(Loader):
     '''Loader that loads from a video'''
 
-    def __init__(self, video_path: str, offset=0):
-        super().__init__(offset)
-        self._video_path = video_path
+    def __init__(self, config: dict):
+        super().__init__(config['image_number_offset'])
+        self._video_path = config['video_path']
         self._cap = cv.VideoCapture(self._video_path)
         self._image = None # Current image
         self._image_read = False # Check if the current images was read
@@ -68,9 +91,9 @@ class VideoLoader(Loader):
         self._image_read = True
         return self._image
 
-    def finish(self):
-        '''Release all used resources in order to end correctly'''
+    def end(self):
         self._cap.release()
+        pass
 
 
 class Formatter:
