@@ -14,10 +14,10 @@ def main(config_path: str, video_identifier: str):
     '''Use basic loader functions to read an image '''
     loader = get_loader(config_path, video_identifier)
     image = loader.read()
-    loader.end()
     cv2.imshow('image', image)
     cv2.waitKey(0) 
     cv2.destroyAllWindows()
+    loader.end()
 
 
 if __name__ == "__main__":
