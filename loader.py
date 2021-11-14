@@ -1,21 +1,26 @@
-import cv2 as cv
+'''Loader of videos of frames'''
+
 import abc
+import cv2 as cv
+import numpy as np
 
 
 class Loader(metaclass=abc.ABCMeta):
+    '''Abstract class of loader'''
     def __init__(self, offset):
         self._offset = offset
-        pass
 
     @abc.abstractmethod
     def has_images(self):
-        pass
+        '''Check if the source contains one more frame'''
 
     @abc.abstractmethod
     def read(self):
-        pass
+        '''Read a new image from the source'''
 
 class ImageLoader:
+    '''Loader that loads images from a directory'''
+
     def __init__(self, imageDataset, prefix, digits, offset=0):
         super().__init__(offset)
         self._image_dataset = imageDataset
@@ -34,8 +39,11 @@ class ImageLoader:
     def load(self, index):
         return cv.imread(self.path(index), cv.IMREAD_GRAYSCALE)
 
+
 class VideoLoader(Loader):
-    def __init__(self, video_path, offset=0):
+    '''Loader that loads from a video'''
+
+    def __init__(self, video_path: str, offset=0):
         super().__init__(offset)
         self._video_path = video_path
         self._cap = cv.VideoCapture(self._video_path)
@@ -61,9 +69,13 @@ class VideoLoader(Loader):
         return self._image
 
     def finish(self):
+        '''Release all used resources in order to end correctly'''
         self._cap.release()
 
+
 class Formatter:
+    '''Format frames in order to be used by image processing methods'''
+
     def __init__(self, shape, grades, a, w1, w2, h1, h2, gray=True):
         self._width = shape[0]
         self._height = shape[1]
@@ -78,7 +90,8 @@ class Formatter:
         self._h2 = h2
         self._gray = gray
 
-    def apply(self, image):
+    def apply(self, image: np.ndarray) -> np.ndarray:
+        '''Apply format methods in current image'''
         # Rotate image
         if self._grades != 0:
             image = cv.warpAffine(image, self._M, (self._width, self._height))
