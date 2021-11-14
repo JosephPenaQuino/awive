@@ -28,6 +28,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "video_identifier",
         help="Index of the video of the json config file")
-    ARGS = parser.parse_args()
-    CONFIG_PATH = f'{FOLDER_PATH}/{ARGS.statio_name}.json'
-    main(config_path=CONFIG_PATH, video_identifier=ARGS.video_identifier)
+    args = parser.parse_args()
+    CONFIG_PATH = f'{FOLDER_PATH}/{args.statio_name}.json'
+    main(config_path=CONFIG_PATH, video_identifier=args.video_identifier)
