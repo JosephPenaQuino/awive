@@ -1,9 +1,8 @@
 '''Loader of videos of frames'''
 
-import os
 import json
+import os
 import abc
-import numpy as np
 import cv2
 
 
@@ -43,7 +42,7 @@ class ImageLoader(Loader):
         i += self._offset
         if self._digits == 5:
             return f'{self._image_dataset}/{self._prefix}{i:05}.jpg'
-        elif self._digits == 3:
+        if self._digits == 3:
             return f'{self._image_dataset}/{self._prefix}{i:03}.jpg'
         return f'{self._image_dataset}/{self._prefix}{i:04}.jpg'
 
@@ -89,37 +88,6 @@ class VideoLoader(Loader):
 
     def end(self):
         self._cap.release()
-        pass
-
-
-class Formatter:
-    '''Format frames in order to be used by image processing methods'''
-
-    def __init__(self, shape, grades, a, w1, w2, h1, h2, gray=True):
-        self._width = shape[0]
-        self._height = shape[1]
-        self._grades = grades
-        self._a = a
-        self._M = cv2.getRotationMatrix2D((self._width//2, self._height//2),
-                                         grades,
-                                         a)
-        self._w1 = w1
-        self._w2 = w2
-        self._h1 = h1
-        self._h2 = h2
-        self._gray = gray
-
-    def apply(self, image: np.ndarray) -> np.ndarray:
-        '''Apply format methods in current image'''
-        # Rotate image
-        if self._grades != 0:
-            image = cv2.warpAffine(image, self._M, (self._width, self._height))
-        # Crop image
-        image = image[self._w1:self._w2, self._h1:self._h2]
-        # To gray
-        if self._gray:
-            image = cv2.cv2tColor(image, cv2.COLOR_BGR2GRAY)
-        return image
 
 
 def get_loader(config_path: str, video_identifier: str) -> Loader:

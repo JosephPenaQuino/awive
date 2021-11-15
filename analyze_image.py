@@ -5,7 +5,7 @@ import json
 import numpy as np
 
 from loader import get_loader
-from loader import Formatter
+from correct_image import Formatter
 
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
@@ -19,25 +19,10 @@ def main(config_path: str, video_identifier: str, entire_frame=False):
 
     # Set formatter
     image = loader.read()
+    formatter = Formatter(config_path, video_identifier)
     if entire_frame:
-        formatter = Formatter(image.shape,
-                              conf['rotate_image'],
-                              1.0,
-                              0,
-                              6000,
-                              0,
-                              6000,
-                              gray=False)
-    else:
-        formatter = Formatter(image.shape,
-                              conf['rotate_image'],
-                              1.0,
-                              conf['roi']['w1'],
-                              conf['roi']['w2'],
-                              conf['roi']['h1'],
-                              conf['roi']['h2'],
-                              gray=False)
-    image = formatter.apply(image)
+        formatter.show_entire_image()
+    image = formatter.apply_roi_extraction(image)
     np.save('tmp.npy', image)
 
 

@@ -3,20 +3,19 @@ import argparse
 
 import cv2
 
-from loader import get_loader
-from loader import Formatter
+from loader import get_loader, Loader
 
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 RESIZE_RATIO = 5
 
 
-def play(loader: Formatter):
+def play(loader: Loader):
     '''Plays a video'''
 
     while loader.has_images():
-        im = loader.read()
-        lil_im = cv2.resize(im, (1000, 1000))
+        image = loader.read()
+        lil_im = cv2.resize(image, (1000, 1000))
         cv2.imshow('Video', lil_im)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             print ('Finished by key \'q\'')
