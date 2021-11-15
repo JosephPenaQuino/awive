@@ -14,12 +14,8 @@ FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 def main(config_path: str, video_identifier: str, entire_frame=False):
     '''Save the first image as numpy file'''
     loader = get_loader(config_path, video_identifier)
-    with open(config_path) as json_file:
-        conf = json.load(json_file)[video_identifier]
-
-    # Set formatter
-    image = loader.read()
     formatter = Formatter(config_path, video_identifier)
+    image = loader.read()
     if entire_frame:
         formatter.show_entire_image()
     image = formatter.apply_roi_extraction(image)
