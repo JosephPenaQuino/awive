@@ -6,11 +6,17 @@ frames in defined directory path.
 
 '''
 
+import sys
 import json
 import argparse
 import numpy as np
+import pandas as pd
 import cv2
 from loader import get_loader
+
+
+sys.path.append('/home/joseph/Documents/Thesis/Projects/AutomaticLSPIV/lspiv')
+import imageprep as ip
 
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
@@ -26,6 +32,7 @@ class Formatter:
 
         sample_image = self._get_sample_image(config_path, video_identifier)
         self._shape = (sample_image.shape[0], sample_image.shape[1])
+        self._or_params = self._get_orthorectification_params(sample_image)
 
         self._grades = self._config['rotate_image']
         self._rotation_matrix = self._get_rotation_matrix()
@@ -35,6 +42,17 @@ class Formatter:
         h_slice = slice(self._config['roi']['h1'],
                         self._config['roi']['h2'])
         self._slice = (w_slice, h_slice)
+
+    def _get_orthorectification_params(self, sample_image: np.ndarray):
+        df_from = pd.DataFrame(self._config['gcp']['pixels'])
+        df_to = pd.DataFrame(self._config['gcp']['meters'])
+        corr_img = ip.lens_corr(sample_image)
+        M, C, __ = ip.orthorect_param(corr_img,
+                                      df_from,
+                                      df_to,
+                                      PPM=self._config['PPM'],
+                                      lonlat=False)
+        return (M, C)
 
     def _get_rotation_matrix(self):
         a = 1.0   # TODO: idk why is 1.0
@@ -78,8 +96,25 @@ class Formatter:
             image = self._gray(image)
         return image
 
+    def apply_image_enhancement(self, image: np.ndarray) -> np.ndarray:
+        '''Apply contrast- and gamma correction'''
+        # img_grey = ip.color_corr(
+        #     img_orth,
+        #     alpha=self.enhance_alpha,
+        #     beta=self.enhance_beta,
+        #     gamma=self.enhance_gamma)
+        return image
+
     def apply_distortion_correction(self, image: np.ndarray) ->np.ndarray:
         '''Given GCP, undistort image'''
+
+        # apply lens distortion correction
+        image = ip.lens_corr(image)
+
+        # apply orthorectification
+        image = ip.orthorect_trans(image,
+                                   self._or_params[0],
+                                   self._or_params[1])
         return image
 
 
@@ -88,10 +123,10 @@ def main(config_path: str, video_identifier: str):
     loader = get_loader(config_path, video_identifier)
     formatter = Formatter(config_path, video_identifier)
     image = loader.read()
-    image = formatter.apply_roi_extraction(image)
     image = formatter.apply_distortion_correction(image)
+    image = formatter.apply_roi_extraction(image)
 
-    cv2.imshow('image', image)
+    cv2.imshow('image', cv2.resize(image, (1000, 1000)))
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     loader.end()

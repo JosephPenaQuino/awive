@@ -1,7 +1,6 @@
 '''Analyze image savig it as numpy file'''
 
 import argparse
-import json
 import numpy as np
 
 from loader import get_loader
