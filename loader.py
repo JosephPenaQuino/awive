@@ -4,7 +4,7 @@ import os
 import json
 import abc
 import numpy as np
-import cv2 as cv
+import cv2
 
 
 def get_loader(config_path, video_identifier):
@@ -17,7 +17,6 @@ def get_loader(config_path, video_identifier):
         config = json.load(json_file)[video_identifier]
 
     image_folder_path = config['image_dataset']
-    print('image path:', image_folder_path)
     if any(os.scandir(image_folder_path)):
         return ImageLoader(config)
     return VideoLoader(config)
@@ -41,7 +40,7 @@ class Loader(metaclass=abc.ABCMeta):
         '''Free all resources'''
 
 
-class ImageLoader:
+class ImageLoader(Loader):
     '''Loader that loads images from a directory'''
 
     def __init__(self, config: dict):
@@ -49,18 +48,30 @@ class ImageLoader:
         self._image_dataset = config['image_dataset']
         self._prefix = config['image_path_prefix']
         self._digits = config['image_path_digits']
+        self._index = 0
+        self._image_number = len(os.listdir(self._image_dataset))
 
-    def path(self, i):
+    def has_images(self):
+        return self._index < self._image_number
+
+    def _path(self, i):
         i += self._offset
         if self._digits == 5:
             return f'{self._image_dataset}/{self._prefix}{i:05}.jpg'
         elif self._digits == 3:
             return f'{self._image_dataset}/{self._prefix}{i:03}.jpg'
-        else:
-            return f'{self._image_dataset}/{self._prefix}{i:04}.jpg'
+        return f'{self._image_dataset}/{self._prefix}{i:04}.jpg'
 
-    def load(self, index):
-        return cv.imread(self.path(index), cv.IMREAD_GRAYSCALE)
+    def set_index(self, index):
+        '''Set index of the loader to read any image from the folder'''
+        self._index = index
+
+    def read(self):
+        self._index += 1
+        return cv2.imread(self._path(self._index))
+
+    def end(self):
+        pass
 
 
 class VideoLoader(Loader):
@@ -69,7 +80,7 @@ class VideoLoader(Loader):
     def __init__(self, config: dict):
         super().__init__(config['image_number_offset'])
         self._video_path = config['video_path']
-        self._cap = cv.VideoCapture(self._video_path)
+        self._cap = cv2.VideoCapture(self._video_path)
         self._image = None # Current image
         self._image_read = False # Check if the current images was read
 
@@ -104,7 +115,7 @@ class Formatter:
         self._height = shape[1]
         self._grades = grades
         self._a = a
-        self._M = cv.getRotationMatrix2D((self._width//2, self._height//2),
+        self._M = cv2.getRotationMatrix2D((self._width//2, self._height//2),
                                          grades,
                                          a)
         self._w1 = w1
@@ -117,10 +128,10 @@ class Formatter:
         '''Apply format methods in current image'''
         # Rotate image
         if self._grades != 0:
-            image = cv.warpAffine(image, self._M, (self._width, self._height))
+            image = cv2.warpAffine(image, self._M, (self._width, self._height))
         # Crop image
         image = image[self._w1:self._w2, self._h1:self._h2]
         # To gray
         if self._gray:
-            image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+            image = cv2.cv2tColor(image, cv2.COLOR_BGR2GRAY)
         return image
