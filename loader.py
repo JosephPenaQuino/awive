@@ -7,24 +7,9 @@ import numpy as np
 import cv2
 
 
-def get_loader(config_path, video_identifier):
-    '''Return a ImageLoader or VideoLoader class
-    Read config path and if the image dataset folder is full the function
-    returns a ImageLoader, if not, then returns a VideoLoader
-    '''
-    # check if in image folder there are located the extracted images
-    with open(config_path) as json_file:
-        config = json.load(json_file)[video_identifier]
-
-    image_folder_path = config['image_dataset']
-    if any(os.scandir(image_folder_path)):
-        return ImageLoader(config)
-    return VideoLoader(config)
-
-
 class Loader(metaclass=abc.ABCMeta):
     '''Abstract class of loader'''
-    def __init__(self, offset):
+    def __init__(self, offset: int):
         self._offset = offset
 
     @abc.abstractmethod
@@ -54,7 +39,7 @@ class ImageLoader(Loader):
     def has_images(self):
         return self._index < self._image_number
 
-    def _path(self, i):
+    def _path(self, i: int):
         i += self._offset
         if self._digits == 5:
             return f'{self._image_dataset}/{self._prefix}{i:05}.jpg'
@@ -62,7 +47,7 @@ class ImageLoader(Loader):
             return f'{self._image_dataset}/{self._prefix}{i:03}.jpg'
         return f'{self._image_dataset}/{self._prefix}{i:04}.jpg'
 
-    def set_index(self, index):
+    def set_index(self, index: int):
         '''Set index of the loader to read any image from the folder'''
         self._index = index
 
@@ -135,3 +120,18 @@ class Formatter:
         if self._gray:
             image = cv2.cv2tColor(image, cv2.COLOR_BGR2GRAY)
         return image
+
+
+def get_loader(config_path: str, video_identifier: str) -> Loader:
+    '''Return a ImageLoader or VideoLoader class
+    Read config path and if the image dataset folder is full the function
+    returns a ImageLoader, if not, then returns a VideoLoader
+    '''
+    # check if in image folder there are located the extracted images
+    with open(config_path) as json_file:
+        config = json.load(json_file)[video_identifier]
+
+    image_folder_path = config['image_dataset']
+    if any(os.scandir(image_folder_path)):
+        return ImageLoader(config)
+    return VideoLoader(config)
