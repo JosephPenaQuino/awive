@@ -82,7 +82,7 @@ class Formatter:
         if self._grades != 0:
             return cv2.warpAffine(image,
                                   self._rotation_matrix,
-                                  self._shape)
+                                  (self._shape[1], self._shape[0]))
         return image
 
     def _crop(self, image: np.ndarray) -> np.ndarray:
@@ -115,6 +115,9 @@ class Formatter:
         image = ip.orthorect_trans(image,
                                    self._or_params[0],
                                    self._or_params[1])
+        self._shape = (image.shape[0], image.shape[1])
+        # update rotation matrix such as the shape of the image changed
+        self._rotation_matrix = self._get_rotation_matrix()
         return image
 
 
