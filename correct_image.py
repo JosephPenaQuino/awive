@@ -6,16 +6,12 @@ frames in defined directory path.
 
 '''
 
-import sys
 import json
 import argparse
 import numpy as np
-import pandas as pd
 import cv2
+import pandas as pd
 from loader import get_loader
-
-
-sys.path.append('/home/joseph/Documents/Thesis/Projects/AutomaticLSPIV/lspiv')
 import imageprep as ip
 
 
