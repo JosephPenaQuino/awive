@@ -10,7 +10,6 @@ import json
 import argparse
 import numpy as np
 import cv2
-import pandas as pd
 from loader import get_loader
 import imageprep as ip
 
@@ -40,8 +39,10 @@ class Formatter:
         self._slice = (w_slice, h_slice)
 
     def _get_orthorectification_params(self, sample_image: np.ndarray):
-        df_from = pd.DataFrame(self._config['gcp']['pixels'])
-        df_to = pd.DataFrame(self._config['gcp']['meters'])
+        x = self._config['gcp']['pixels']
+        df_from = list(map(list, zip(*[(v) for k, v in x.items()])))
+        x = self._config['gcp']['meters']
+        df_to = list(map(list, zip(*[(v) for k, v in x.items()])))
         corr_img = ip.lens_corr(sample_image)
         M, C, __ = ip.orthorect_param(corr_img,
                                       df_from,

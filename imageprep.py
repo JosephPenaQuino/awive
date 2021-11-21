@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import cv2
 import math
 
@@ -60,16 +59,17 @@ def xy_coord(df):
     df_new - DataFrame with xy-coordinates in metres
     """
     # set base parameters
-    r = 6378137  # meters according to WGS84
-    phi_0 = df.latitude[0]
-    cos_phi_0 = math.cos(math.radians(phi_0))
+    # r = 6378137  # meters according to WGS84
+    # phi_0 = df.latitude[0]
+    # cos_phi_0 = math.cos(math.radians(phi_0))
 
-    # create new DataFrame containing original coordinates in metres
-    df_new = pd.DataFrame()
-    df_new['x'] = [r * math.radians(lon) * cos_phi_0 for lon in df.lon.values]
-    df_new['y'] = [r * math.radians(lat) for lat in df.lat.values]
+    # # create new DataFrame containing original coordinates in metres
+    # df_new = pd.DataFrame()
+    # df_new['x'] = [r * math.radians(lon) * cos_phi_0 for lon in df.lon.values]
+    # df_new['y'] = [r * math.radians(lat) for lat in df.lat.values]
 
-    return df_new
+    # return df_new
+    return 12
 
 
 def orthorect_param(img, df_from, df_to, PPM=100, lonlat=False):
@@ -104,8 +104,12 @@ def orthorect_param(img, df_from, df_to, PPM=100, lonlat=False):
         df_to = xy_coord(df_to)
 
     # set points to float32
-    pts1 = np.float32(df_from.values)
-    pts2 = np.float32(df_to.values * PPM)
+    pts1 = np.float32(df_from)
+    # Multiple elements inside df_to by PPM
+    df_too = []
+    for x in df_to:
+        df_too.append(list(map(lambda x: x*PPM, x)))
+    pts2 = np.float32(df_too)
 
     # define transformation matrix based on GCPs
     M = cv2.getPerspectiveTransform(pts1, pts2)
