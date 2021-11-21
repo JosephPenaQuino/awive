@@ -118,7 +118,7 @@ class Formatter:
         return image
 
 
-def main(config_path: str, video_identifier: str):
+def main(config_path: str, video_identifier: str, save_image: bool):
     '''Demonstrate basic example of video correction'''
     loader = get_loader(config_path, video_identifier)
     formatter = Formatter(config_path, video_identifier)
@@ -126,9 +126,12 @@ def main(config_path: str, video_identifier: str):
     image = formatter.apply_distortion_correction(image)
     image = formatter.apply_roi_extraction(image)
 
-    cv2.imshow('image', cv2.resize(image, (1000, 1000)))
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    if save_image:
+        cv2.imwrite('tmp.jpg', image)
+    else:
+        cv2.imshow('image', cv2.resize(image, (1000, 1000)))
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
     loader.end()
 
 if __name__ == "__main__":
@@ -139,6 +142,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "video_identifier",
         help="Index of the video of the json config file")
+    parser.add_argument(
+        '-s',
+        '--save',
+        help='Save images instead of showing',
+        action='store_true')
+    parser.add_argument(
+        '-p',
+        '--path',
+        help='Path to the config folder',
+        type=str,
+        default=FOLDER_PATH)
+
     args = parser.parse_args()
-    CONFIG_PATH = f'{FOLDER_PATH}/{args.statio_name}.json'
-    main(config_path=CONFIG_PATH, video_identifier=args.video_identifier)
+    CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
+    main(config_path=CONFIG_PATH, video_identifier=args.video_identifier,
+            save_image=args.save)
