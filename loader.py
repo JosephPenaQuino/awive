@@ -3,7 +3,11 @@
 import json
 import os
 import abc
+import argparse
 import cv2
+
+
+FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 
 class Loader(metaclass=abc.ABCMeta):
@@ -103,3 +107,43 @@ def get_loader(config_path: str, video_identifier: str) -> Loader:
     if any(os.scandir(image_folder_path)):
         return ImageLoader(config)
     return VideoLoader(config)
+
+
+def main(config_path: str, video_identifier: str, save_image: bool):
+    '''Execute a basic example of loader'''
+    loader = get_loader(config_path, video_identifier)
+    image = loader.read()
+    if save_image:
+        cv2.imwrite('tmp.jpg', image)
+    else:
+        cv2.imshow('image', cv2.resize(image, (1000, 1000)))
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    loader.end()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "statio_name",
+        help="Name of the station to be analyzed")
+    parser.add_argument(
+        "video_identifier",
+        help="Index of the video of the json config file")
+    parser.add_argument(
+        '-s',
+        '--save',
+        help='Save images instead of showing',
+        action='store_true')
+    parser.add_argument(
+        '-p',
+        '--path',
+        help='Path to the config folder',
+        type=str,
+        default=FOLDER_PATH)
+
+    args = parser.parse_args()
+    CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
+    main(config_path=CONFIG_PATH, video_identifier=args.video_identifier,
+            save_image=args.save)
