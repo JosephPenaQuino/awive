@@ -6,3 +6,4 @@ __pycache__
 *.json
 *.png
 *.jpg
+*.out
