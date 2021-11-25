@@ -49,20 +49,33 @@ class OTV():
         return good_old, good_new
 
 
-def draw_vectors(image, new_list, old_list, mask):
+def draw_vectors(image, new_list, old_list, masks):
     '''Draw vectors of velocity and return the output and update mask'''
     if len(image.shape) == 3:
         color = (0, 255, 0)
         thick = 2
     else:
-        print('asdf')
         color = 255
         thick = 1
 
+    # create new mask
+    mask = np.zeros(image.shape, dtype=np.uint8)
     for new, old in zip(new_list, old_list):
         mask = cv2.line(mask, new.ravel(), old.ravel(), color, thick)
-        # image = cv2.circle(image, new.ravel(), 3, color, -1)
-    output = cv2.add(image, mask)
+
+    # update masks list
+    masks.append(mask)
+    if len(masks) < 3:
+        return np.zeros(image.shape)
+    if len(masks) > 3:
+        masks.pop(0)
+
+
+    # generate image with mask
+    total_mask = np.zeros(mask.shape, dtype=np.uint8)
+    for mask_ in masks:
+        total_mask = cv2.add(total_mask, mask_)
+    output = cv2.add(image, total_mask)
     return output
 
 
@@ -75,14 +88,14 @@ def main(config_path: str, video_identifier: str):
     loader.has_images()
     image = loader.read()
     prev_gray = formatter.apply_roi_extraction(image)
-    mask = np.zeros_like(prev_gray)
+    masks = []
     otv = OTV(prev_gray)
 
     while loader.has_images():
         color_frame = loader.read()
         frame = formatter.apply_roi_extraction(color_frame)
         good_old, good_new = otv.calc(frame)
-        output = draw_vectors(frame, good_new, good_old, mask)
+        output = draw_vectors(frame, good_new, good_old, masks)
 
         # Plot frame
         cv2.imshow("sparse optical flow", output)
