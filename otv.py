@@ -4,7 +4,7 @@ import argparse
 import numpy as np
 import cv2
 from correct_image import Formatter
-from loader import get_loader
+from loader import (get_loader, Loader)
 # from sti import applyMean
 
 
@@ -47,6 +47,95 @@ class OTV():
         self.prev_gray = gray.copy()
         self.prev = good_new.reshape(-1, 1, 2)
         return good_old, good_new
+
+    def run(self, loader: Loader, formatter: Formatter):
+        '''Execute OTV and get velocimetry'''
+        detector = cv2.FastFeatureDetector_create()
+        previous_frame = None
+        max_features = 3000  # TODO: this is an example
+        keypoints_current = []
+        keypoints_start = []
+        time = []
+        valid = []
+        velocity_mem = []
+        path = []
+        velocity = []
+        angle = []
+        distance = []
+        keypoints_predicted = []
+        masks = []
+
+        # Initialization
+        for i in range(loader.total_frames):
+            valid.append([])
+            velocity_mem.append([])
+            velocity.append([])
+            angle.append([])
+            distance.append([])
+            path.append([])
+
+        while loader.has_images():
+            current_frame = loader.read()
+            current_frame = formatter.apply_distortion_correction(current_frame)
+            current_frame = formatter.apply_roi_extraction(current_frame)
+            lk_params = {
+                'winSize': (5,5),
+                'maxLevel': 2,
+                'criteria': (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
+                             10,
+                             0.03)
+                }
+            # get features
+            keypoints = detector.detect(current_frame, None)
+
+            # update lot of lists
+            if previous_frame is None:
+                for i, keypoint in enumerate(keypoints):
+                    if len(keypoints_current) < max_features:
+                        keypoints_current.append(keypoint)
+                        keypoints_start.append(keypoint)
+                        time.append(loader.index)
+                        valid[loader.index].append(False)
+                        velocity_mem[loader.index].append(0)
+                        path[loader.index].append(i)
+            else:
+                for i, keypoint in enumerate(reversed(keypoints)):
+                    if len(keypoints_current) < max_features:
+                        keypoints_current.append(keypoint)
+                        keypoints_start.append(keypoint)
+                        time.append(loader.index)
+                        valid[loader.index].append(False)
+                        velocity_mem[loader.index].append(0)
+
+            if previous_frame is not None:
+                status = []
+                errors = []
+                pts1 = cv2.KeyPoint_convert(keypoints_current)
+                pts2, st, err = cv2.calcOpticalFlowPyrLK(
+                    previous_frame,
+                    current_frame,
+                    pts1,
+                    None,
+                    **lk_params
+                    )
+                pts2 = pts2.astype(int)
+                pts1 = pts1.astype(int)
+                if pts2 is not None:
+                    good_new = pts2[(st==1).T[0]]
+                    good_old = pts1[(st==1).T[0]]
+                # keypoints_predicted.clear()
+                # for pt2 in pts2:
+                #     keypoints_predicted.append(cv2.KeyPoint(pt2, 1.0))
+
+            if previous_frame is not None:
+                output = draw_vectors(current_frame, good_new, good_old, masks)
+                if loader.index >= 10:
+                    cv2.imshow('output', output)
+                    cv2.waitKey(0)
+                    loader.end()
+                    cv2.destroyAllWindows()
+                    return
+            previous_frame = current_frame.copy()
 
 
 def draw_vectors(image, new_list, old_list, masks):
@@ -91,18 +180,20 @@ def main(config_path: str, video_identifier: str):
     masks = []
     otv = OTV(prev_gray)
 
-    while loader.has_images():
-        color_frame = loader.read()
-        frame = formatter.apply_roi_extraction(color_frame)
-        good_old, good_new = otv.calc(frame)
-        output = draw_vectors(frame, good_new, good_old, masks)
+    otv.run(loader, formatter)
 
-        # Plot frame
-        cv2.imshow("sparse optical flow", output)
-        if cv2.waitKey(10) & 0xFF == ord('q'):
-            break
-    loader.end()
-    cv2.destroyAllWindows()
+    # while loader.has_images():
+    #     color_frame = loader.read()
+    #     frame = formatter.apply_roi_extraction(color_frame)
+        # good_old, good_new = otv.calc(frame)
+    #     output = draw_vectors(frame, good_new, good_old, masks)
+
+    #     # Plot frame
+    #     cv2.imshow("sparse optical flow", output)
+    #     if cv2.waitKey(10) & 0xFF == ord('q'):
+    #         break
+    # loader.end()
+    # cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
