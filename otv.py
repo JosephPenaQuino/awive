@@ -1,6 +1,7 @@
 '''Optical Tracking Image Velocimetry'''
 
 import argparse
+import json
 import numpy as np
 import cv2
 from correct_image import Formatter
@@ -13,18 +14,25 @@ FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 class OTV():
     '''Optical Tracking Image Velocimetry'''
-    def __init__(self, prev_gray):
-        self.feature_params = dict(maxCorners=300,
-                                   qualityLevel=0.2,
-                                   minDistance=4,
-                                   blockSize=2)
-        self.lk_params = dict(
-            winSize=(5, 5),
-            maxLevel=2,
-            criteria=(
-                cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
-                10,
-                0.03))
+    def __init__(self, config_path: str, video_identifier: str,
+            prev_gray: np.ndarray):
+        with open(config_path) as json_file:
+            config = json.load(json_file)[video_identifier]['otv']
+        self.feature_params = {
+            'maxCorners': config['features']['maxcorner'],
+            'qualityLevel': config['features']['qualitylevel'],
+            'minDistance': config['features']['mindistance'],
+            'blockSize': config['features']['blocksize']
+            }
+        winsize = config['lk']['winsize']
+
+        self.lk_params = {
+            'winSize': (winsize, winsize),
+            'maxLevel': config['lk']['maxlevel'],
+            'criteria': (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
+                         10,
+                         0.03)
+            }
         self.prev_gray = prev_gray
         self.prev = cv2.goodFeaturesToTrack(
             prev_gray,
@@ -78,13 +86,6 @@ class OTV():
             current_frame = loader.read()
             current_frame = formatter.apply_distortion_correction(current_frame)
             current_frame = formatter.apply_roi_extraction(current_frame)
-            lk_params = {
-                'winSize': (5,5),
-                'maxLevel': 2,
-                'criteria': (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
-                             10,
-                             0.03)
-                }
             # get features
             keypoints = detector.detect(current_frame, None)
 
@@ -116,7 +117,7 @@ class OTV():
                     current_frame,
                     pts1,
                     None,
-                    **lk_params
+                    **self.lk_params
                     )
                 pts2 = pts2.astype(int)
                 pts1 = pts1.astype(int)
@@ -129,13 +130,12 @@ class OTV():
 
             if previous_frame is not None:
                 output = draw_vectors(current_frame, good_new, good_old, masks)
-                if loader.index >= 10:
-                    cv2.imshow('output', output)
-                    cv2.waitKey(0)
-                    loader.end()
-                    cv2.destroyAllWindows()
-                    return
+                cv2.imshow("sparse optical flow", output)
+                if cv2.waitKey(10) & 0xFF == ord('q'):
+                    break
             previous_frame = current_frame.copy()
+        loader.end()
+        cv2.destroyAllWindows()
 
 
 def draw_vectors(image, new_list, old_list, masks):
@@ -173,27 +173,11 @@ def main(config_path: str, video_identifier: str):
     '''Basic example of OTV'''
     loader = get_loader(config_path, video_identifier)
     formatter = Formatter(config_path, video_identifier)
-
     loader.has_images()
     image = loader.read()
     prev_gray = formatter.apply_roi_extraction(image)
-    masks = []
-    otv = OTV(prev_gray)
-
+    otv = OTV(config_path, video_identifier, prev_gray)
     otv.run(loader, formatter)
-
-    # while loader.has_images():
-    #     color_frame = loader.read()
-    #     frame = formatter.apply_roi_extraction(color_frame)
-        # good_old, good_new = otv.calc(frame)
-    #     output = draw_vectors(frame, good_new, good_old, masks)
-
-    #     # Plot frame
-    #     cv2.imshow("sparse optical flow", output)
-    #     if cv2.waitKey(10) & 0xFF == ord('q'):
-    #         break
-    # loader.end()
-    # cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
