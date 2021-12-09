@@ -47,7 +47,9 @@ class OTV():
         self._max_features = config['max_features']
         self._radius = config['lk']['radius']
         self._max_level = config['lk']['max_level']
+        self._step = config['region_step']
         self._resolution = config['resolution']
+        self._pixel_to_real = config['pixel_to_real']
 
         winsize = config['lk']['winsize']
 
@@ -100,6 +102,18 @@ class OTV():
         self.prev = good_new.reshape(-1, 1, 2)
         return good_old, good_new
 
+    def _init_subregion_list(self, dimension, width):
+        ret = []
+        n_regions = math.ceil(width*self._resolution / self._step)
+        for _ in range(n_regions):
+            # TODO: This is so inneficient
+            if dimension == 1:
+                ret.append(0)
+            elif dimension == 2:
+                ret.append([])
+        return ret
+
+
     def run(self, loader: Loader, formatter: Formatter):
         '''Execute OTV and get velocimetry'''
         detector = cv2.FastFeatureDetector_create()
@@ -118,6 +132,9 @@ class OTV():
         angle = []
         distance = []
         path = []
+
+        subregion_velocity = self._init_subregion_list(2, loader.width)
+        subregion_trajectories = self._init_subregion_list(1, loader.width)
 
         # Initialization
         for i in range(loader.total_frames):
@@ -159,7 +176,7 @@ class OTV():
             print('Analyzing frame:', loader.index)
             if previous_frame is not None:
                 pts1 = cv2.KeyPoint_convert(keypoints_current)
-                pts2, st, err = cv2.calcOpticalFlowPyrLK(
+                pts2, st, _ = cv2.calcOpticalFlowPyrLK(
                     previous_frame,
                     current_frame,
                     pts1,
@@ -201,20 +218,22 @@ class OTV():
                                 keypoints_current[i],
                                 self._pixel_to_real / self._resolution,
                                 loader.index - time[i],
-                                self._fps
+                                loader.fps
                                 )
-                            angle_i = _get_angle(
+                            angle_i = get_angle(
                                 keypoints_start[i],
                                 keypoints_current[i]
                                 )
-                            module_start = keypoints_start[i].pt[0] / self._step
-                            module_current = keypoints_start[i].pt[0] / self._step
+                            module_start = int(keypoints_start[i].pt[0] /
+                                    self._step)
+                            module_current = int(keypoints_start[i].pt[0] /
+                                    self._step)
                             if module_start == module_current:
                                 subregion_velocity[module_start].append(velocity_i)
                                 subregion_trajectories[module_start] += 1
 
                             # update storage
-                            pos = loader.index.copy()
+                            pos = loader.index
                         continue
 
                     # Add new displacement vector
@@ -250,6 +269,8 @@ class OTV():
             keypoints_mem_current.append(keypoints_current)
             keypoints_mem_predicted.append(keypoints_predicted)
 
+            # TODO: I guess the swap is not needed such as in the next iteration
+            # the keypoints_predicted will be cleaned
             if len(keypoints_predicted) != 0:
                 keypoints_predicted, keypoints_current = keypoints_current, keypoints_predicted
 
