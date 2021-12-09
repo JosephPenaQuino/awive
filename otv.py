@@ -112,6 +112,8 @@ class OTV():
 
         valid = []
         velocity_mem = []
+        keypoints_mem_current = []
+        keypoints_mem_predicted = []
         velocity = []
         angle = []
         distance = []
@@ -156,8 +158,6 @@ class OTV():
 
             print('Analyzing frame:', loader.index)
             if previous_frame is not None:
-                status = []
-                errors = []
                 pts1 = cv2.KeyPoint_convert(keypoints_current)
                 pts2, st, err = cv2.calcOpticalFlowPyrLK(
                     previous_frame,
@@ -166,10 +166,15 @@ class OTV():
                     None,
                     **self.lk_params
                     )
+
+                # add predicted by Lucas-Kanade new keypoints
                 keypoints_predicted.clear()
                 for pt2 in pts2:
-                    keypoints_predicted.append(cv2.KeyPoint(pt2[0], pt2[1], 1.0))
-
+                    keypoints_predicted.append(cv2.KeyPoint(
+                        pt2[0],
+                        pt2[1],
+                        1.0
+                        ))
 
                 max_distance = self._max_level * (2 * self._radius + 1)
                 max_distance /= self._resolution
@@ -242,6 +247,12 @@ class OTV():
                 if cv2.waitKey(10) & 0xFF == ord('q'):
                     break
             previous_frame = current_frame.copy()
+            keypoints_mem_current.append(keypoints_current)
+            keypoints_mem_predicted.append(keypoints_predicted)
+
+            if len(keypoints_predicted) != 0:
+                keypoints_predicted, keypoints_current = keypoints_current, keypoints_predicted
+
         loader.end()
         cv2.destroyAllWindows()
 
