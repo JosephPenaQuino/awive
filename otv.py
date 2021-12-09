@@ -40,7 +40,7 @@ def compute_stats(velocity):
         avg /= count
 
     for i in range(len(velocity)):
-        for j in range(len(velocity[0])):
+        for j in range(len(velocity[i])):
             std_dev += (velocity[i][j] - avg) ** 2
     if count > 0:
         std_dev = math.sqrt(std_dev/count)
