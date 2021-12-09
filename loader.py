@@ -81,6 +81,9 @@ class VideoLoader(Loader):
         cap = cv2.VideoCapture(self._video_path)
         property_id = int(cv2.CAP_PROP_FRAME_COUNT)
         self.total_frames = int(cv2.VideoCapture.get(cap, property_id)) + 1
+        self.fps = cap.get(cv2.CAP_PROP_FPS)
+        self.width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        self.height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
         # Skip offset
         for _ in range(self._offset+1):
