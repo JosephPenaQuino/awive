@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import math
 import numpy as np
 import cv2
 from correct_image import Formatter
@@ -10,6 +11,20 @@ from loader import (get_loader, Loader)
 
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
+
+def get_magnitude(kp1, kp2):
+    '''get the distance between two keypoints'''
+    return math.sqrt((kp2.pt[1] - kp1.pt[1])**2 + (kp2.pt[0] - kp1.pt[0]) ** 2 )
+
+def get_angle(kp1, kp2):
+    '''get angle between two key points'''
+    return math.atan2(kp2.pt[1] - kp1.pt[1] , kp2.pt[0] - kp1.pt[0]) *  180 / math.pi
+
+def _get_velocity(kp1, kp2, real_distance_pixel, time, fps):
+    return get_magnitude(kp1, kp2) * real_distance_pixel * fps / time
+
+
+
 
 
 class OTV():
@@ -24,11 +39,21 @@ class OTV():
             'minDistance': config['features']['mindistance'],
             'blockSize': config['features']['blocksize']
             }
+        self._partial_max_angle = config['partial_max_angle']
+        self._partial_min_angle = config['partial_min_angle']
+        self._final_max_angle = config['final_max_angle']
+        self._final_min_angle = config['final_min_angle']
+        self._final_min_distance = config['final_min_distance']
+        self._max_features = config['max_features']
+        self._radius = config['lk']['radius']
+        self._max_level = config['lk']['max_level']
+        self._resolution = config['resolution']
+
         winsize = config['lk']['winsize']
 
         self.lk_params = {
             'winSize': (winsize, winsize),
-            'maxLevel': config['lk']['maxlevel'],
+            'maxLevel': self._max_level,
             'criteria': (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
                          10,
                          0.03)
@@ -38,6 +63,25 @@ class OTV():
             prev_gray,
             mask=None,
             **self.feature_params)
+
+    def _partial_filtering(self, kp1, kp2, max_distance):
+        magnitude = get_magnitude(kp1, kp2)  #only to limit the research window
+        if magnitude > max_distance:
+            return False
+        angle = get_angle(kp1, kp2)
+        if self._partial_min_angle < angle < self._partial_max_angle:
+            return True
+        return False
+
+    def _final_filtering(self, kp1, kp2):
+        '''Final filter of keypoints'''
+        magnitude = get_magnitude(kp1, kp2)
+        if magnitude < self._final_min_distance:
+            return False
+        angle = get_angle(kp1, kp2)
+        if self._final_min_angle < angle < self._final_max_angle:
+            return True
+        return False
 
     def calc(self, gray):
         '''Calculate velocity vectors of OTV'''
@@ -60,7 +104,6 @@ class OTV():
         '''Execute OTV and get velocimetry'''
         detector = cv2.FastFeatureDetector_create()
         previous_frame = None
-        max_features = 3000  # TODO: this is an example
         keypoints_current = []
         keypoints_start = []
         time = []
@@ -74,6 +117,7 @@ class OTV():
         masks = []
 
         # Initialization
+        print('loader total frames:', loader.total_frames)
         for i in range(loader.total_frames):
             valid.append([])
             velocity_mem.append([])
@@ -92,7 +136,7 @@ class OTV():
             # update lot of lists
             if previous_frame is None:
                 for i, keypoint in enumerate(keypoints):
-                    if len(keypoints_current) < max_features:
+                    if len(keypoints_current) < self._max_features:
                         keypoints_current.append(keypoint)
                         keypoints_start.append(keypoint)
                         time.append(loader.index)
@@ -101,7 +145,7 @@ class OTV():
                         path[loader.index].append(i)
             else:
                 for i, keypoint in enumerate(reversed(keypoints)):
-                    if len(keypoints_current) < max_features:
+                    if len(keypoints_current) < self._max_features:
                         keypoints_current.append(keypoint)
                         keypoints_start.append(keypoint)
                         time.append(loader.index)
@@ -119,14 +163,68 @@ class OTV():
                     None,
                     **self.lk_params
                     )
+                keypoints_predicted.clear()
+                for pt2 in pts2:
+                    keypoints_predicted.append(cv2.KeyPoint(pt2[0], pt2[1], 1.0))
                 pts2 = pts2.astype(int)
                 pts1 = pts1.astype(int)
+
                 if pts2 is not None:
                     good_new = pts2[(st==1).T[0]]
                     good_old = pts1[(st==1).T[0]]
-                # keypoints_predicted.clear()
-                # for pt2 in pts2:
-                #     keypoints_predicted.append(cv2.KeyPoint(pt2, 1.0))
+
+                max_distance = self._max_level * (2 * self._radius + 1)
+                max_distance /= self._resolution
+
+                k = 0
+
+                for i, keypoint in enumerate(keypoints_current):
+                    partial_filter = self._partial_filtering(
+                        keypoint,
+                        keypoints_predicted[i],
+                        max_distance
+                        )
+                    if not st[i] or not partial_filter:
+                        # print('passed partial filter')
+                        final_filter = self._final_filtering(
+                            keypoints_start[i],
+                            keypoints_current[i]
+                            )
+                        if final_filter:
+                            print('passed final filter')
+                            velocity_i = _get_velocity(
+                                keypoints_start[i],
+                                keypoints_current[i],
+                                self._pixel_to_real / self._resolution,
+                                loader.index - time[i],
+                                self._fps
+                                )
+                            angle_i = _get_angle(
+                                keypoints_start[i],
+                                keypoints_current[i]
+                                )
+                            module_start = keypoints_start[i].pt[0] / self._step
+                            module_current = keypoints_start[i].pt[0] / self._step
+                            if module_start == module_current:
+                                subregion_velocity[module_start].append(velocity_i)
+                                subregion_trajectories[module_start] += 1
+
+                            # update storage
+                            pos = loader.index.copy()
+
+                    keypoints_current[k] = keypoints_current[i]
+                    keypoints_start[k] = keypoints_start[i]
+                    keypoints_predicted[k] = keypoints_predicted[i]
+                    # print('loader index:', loader.index)
+                    # print('path length:', len(path))
+                    path[loader.index].append(i)
+                    velocity_mem[loader.index].append(0)
+                    valid[loader.index].append(False)
+                    time[k] = time[i]
+                    k += 1
+
+                print(loader.index)
+
 
             if previous_frame is not None:
                 output = draw_vectors(current_frame, good_new, good_old, masks)
