@@ -23,6 +23,29 @@ def get_angle(kp1, kp2):
 def _get_velocity(kp1, kp2, real_distance_pixel, time, fps):
     return get_magnitude(kp1, kp2) * real_distance_pixel * fps / time
 
+def compute_stats(velocity):
+    avg = 0
+    max_ = 0
+    min_ = 100000000
+    std_dev=0
+    count = 0
+    for i in range(len(velocity)):
+        for j in range(len(velocity[i])):
+            avg += velocity[i][j]
+            max_ = velocity[i][j] if velocity[i][j] > max_ else max_
+            min_ = velocity[i][j] if velocity[i][j] < min_ else min_
+            count += 1
+
+    if count  > 0:
+        avg /= count
+
+    for i in range(len(velocity)):
+        for j in range(len(velocity[0])):
+            std_dev += (velocity[i][j] - avg) ** 2
+    if count > 0:
+        std_dev = math.sqrt(std_dev/count)
+
+    return avg, max_, min_, std_dev, count
 
 
 
@@ -212,7 +235,6 @@ class OTV():
                             )
                         # check if it is a valid trajectory
                         if final_filter:
-                            print('New trajectory at:', i)
                             velocity_i = _get_velocity(
                                 keypoints_start[i],
                                 keypoints_current[i],
@@ -233,7 +255,19 @@ class OTV():
                                 subregion_trajectories[module_start] += 1
 
                             # update storage
-                            pos = loader.index
+                            pos = i
+                            j = loader.index - 1
+                            while j >= time[i]:
+                                valid[j][pos] = True
+                                velocity_mem[j][pos] = velocity_i
+                                pos = path[j][pos]
+                                j-=1
+
+                            velocity[loader.index].append(velocity_i)
+                            angle[loader.index].append(angle_i)
+                            distance[loader.index].append(
+                                velocity_i * (loader.index - time[i]) / loader.fps)
+
                         continue
 
                     # Add new displacement vector
@@ -255,16 +289,16 @@ class OTV():
 
             print('number of trajectories:', len(keypoints_current))
 
-            if previous_frame is not None:
-                output = draw_vectors(
-                    current_frame,
-                    keypoints_predicted,
-                    keypoints_current,
-                    masks
-                    )
-                cv2.imshow("sparse optical flow", output)
-                if cv2.waitKey(10) & 0xFF == ord('q'):
-                    break
+            # if previous_frame is not None:
+            #     output = draw_vectors(
+            #         current_frame,
+            #         keypoints_predicted,
+            #         keypoints_current,
+            #         masks
+            #         )
+            #     cv2.imshow("sparse optical flow", output)
+            #     if cv2.waitKey(10) & 0xFF == ord('q'):
+            #         break
             previous_frame = current_frame.copy()
             keypoints_mem_current.append(keypoints_current)
             keypoints_mem_predicted.append(keypoints_predicted)
@@ -276,6 +310,13 @@ class OTV():
 
         loader.end()
         cv2.destroyAllWindows()
+        avg, max_, min_, std_dev, count = compute_stats(velocity)
+
+        print('avg:', avg)
+        print('max:', max_)
+        print('min:', min_)
+        print('std_dev:', std_dev)
+        print('count:', count)
 
 
 def draw_vectors(image, new_list, old_list, masks):
