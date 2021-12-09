@@ -166,12 +166,7 @@ class OTV():
                 keypoints_predicted.clear()
                 for pt2 in pts2:
                     keypoints_predicted.append(cv2.KeyPoint(pt2[0], pt2[1], 1.0))
-                pts2 = pts2.astype(int)
-                pts1 = pts1.astype(int)
 
-                if pts2 is not None:
-                    good_new = pts2[(st==1).T[0]]
-                    good_old = pts1[(st==1).T[0]]
 
                 max_distance = self._max_level * (2 * self._radius + 1)
                 max_distance /= self._resolution
@@ -184,14 +179,15 @@ class OTV():
                         keypoints_predicted[i],
                         max_distance
                         )
-                    if not st[i] or not partial_filter:
-                        # print('passed partial filter')
+                    # check if the trajectory finished or the vector is invalid
+                    if not (st[i] and partial_filter):
                         final_filter = self._final_filtering(
                             keypoints_start[i],
                             keypoints_current[i]
                             )
+                        # check if it is a valid trajectory
                         if final_filter:
-                            print('passed final filter')
+                            print('New trajectory at:', i)
                             velocity_i = _get_velocity(
                                 keypoints_start[i],
                                 keypoints_current[i],
@@ -211,6 +207,7 @@ class OTV():
 
                             # update storage
                             pos = loader.index.copy()
+                        continue
 
                     keypoints_current[k] = keypoints_current[i]
                     keypoints_start[k] = keypoints_start[i]
@@ -223,11 +220,13 @@ class OTV():
                     time[k] = time[i]
                     k += 1
 
-                print(loader.index)
-
-
             if previous_frame is not None:
-                output = draw_vectors(current_frame, good_new, good_old, masks)
+                output = draw_vectors(
+                    current_frame,
+                    keypoints_predicted,
+                    keypoints_current,
+                    masks
+                    )
                 cv2.imshow("sparse optical flow", output)
                 if cv2.waitKey(10) & 0xFF == ord('q'):
                     break
@@ -248,7 +247,11 @@ def draw_vectors(image, new_list, old_list, masks):
     # create new mask
     mask = np.zeros(image.shape, dtype=np.uint8)
     for new, old in zip(new_list, old_list):
-        mask = cv2.line(mask, new.ravel(), old.ravel(), color, thick)
+        # TODO: Perhaps there is a more efficient way to transform this to a
+        # numpy array
+        new_pt = np.array([int(new.pt[0]), int(new.pt[1])])
+        old_pt = np.array([int(old.pt[0]), int(old.pt[1])])
+        mask = cv2.line(mask, new_pt.ravel(), old_pt.ravel(), color, thick)
 
     # update masks list
     masks.append(mask)
