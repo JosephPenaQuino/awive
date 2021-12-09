@@ -55,8 +55,8 @@ class OTV():
             'winSize': (winsize, winsize),
             'maxLevel': self._max_level,
             'criteria': (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
-                         10,
-                         0.03)
+                         config['lk']['max_count'],
+                         config['lk']['epsilon'])
             }
         self.prev_gray = prev_gray
         self.prev = cv2.goodFeaturesToTrack(
@@ -107,17 +107,17 @@ class OTV():
         keypoints_current = []
         keypoints_start = []
         time = []
-        valid = []
-        velocity_mem = []
-        path = []
-        velocity = []
-        angle = []
-        distance = []
         keypoints_predicted = []
         masks = []
 
+        valid = []
+        velocity_mem = []
+        velocity = []
+        angle = []
+        distance = []
+        path = []
+
         # Initialization
-        print('loader total frames:', loader.total_frames)
         for i in range(loader.total_frames):
             valid.append([])
             velocity_mem.append([])
@@ -127,10 +127,12 @@ class OTV():
             path.append([])
 
         while loader.has_images():
+            # get current frame
             current_frame = loader.read()
             current_frame = formatter.apply_distortion_correction(current_frame)
             current_frame = formatter.apply_roi_extraction(current_frame)
-            # get features
+
+            # get features as a list of KeyPoints
             keypoints = detector.detect(current_frame, None)
 
             # update lot of lists
@@ -152,6 +154,7 @@ class OTV():
                         valid[loader.index].append(False)
                         velocity_mem[loader.index].append(0)
 
+            print('Analyzing frame:', loader.index)
             if previous_frame is not None:
                 status = []
                 errors = []
@@ -209,16 +212,24 @@ class OTV():
                             pos = loader.index.copy()
                         continue
 
+                    # Add new displacement vector
                     keypoints_current[k] = keypoints_current[i]
                     keypoints_start[k] = keypoints_start[i]
                     keypoints_predicted[k] = keypoints_predicted[i]
-                    # print('loader index:', loader.index)
-                    # print('path length:', len(path))
                     path[loader.index].append(i)
                     velocity_mem[loader.index].append(0)
                     valid[loader.index].append(False)
                     time[k] = time[i]
                     k += 1
+
+                # Only keep until the kth keypoint in order to filter invalid
+                # vectors
+                keypoints_current = keypoints_current[:k]
+                keypoints_start = keypoints_start[:k]
+                keypoints_predicted = keypoints_predicted[:k]
+                time = time[:k]
+
+            print('number of trajectories:', len(keypoints_current))
 
             if previous_frame is not None:
                 output = draw_vectors(
