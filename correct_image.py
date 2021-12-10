@@ -38,6 +38,7 @@ class Formatter:
                         self._config['roi']['h2'])
         self._slice = (w_slice, h_slice)
 
+
     def _get_orthorectification_params(self, sample_image: np.ndarray):
         x = self._config['gcp']['pixels']
         df_from = list(map(list, zip(*[(v) for k, v in x.items()])))
@@ -104,6 +105,8 @@ class Formatter:
 
     def apply_distortion_correction(self, image: np.ndarray) ->np.ndarray:
         '''Given GCP, undistort image'''
+        if not self._config['gcp']['apply']:
+            return image
 
         # apply lens distortion correction
         image = ip.lens_corr(image)

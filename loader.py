@@ -14,6 +14,12 @@ class Loader(metaclass=abc.ABCMeta):
     '''Abstract class of loader'''
     def __init__(self, offset: int):
         self._offset = offset
+        self._index = 0
+
+    @property
+    def index(self):
+        '''index getter'''
+        return self._index
 
     @abc.abstractmethod
     def has_images(self):
@@ -36,7 +42,6 @@ class ImageLoader(Loader):
         self._image_dataset = config['image_dataset']
         self._prefix = config['image_path_prefix']
         self._digits = config['image_path_digits']
-        self._index = 0
         self._image_number = len(os.listdir(self._image_dataset))
 
     def has_images(self):
@@ -72,6 +77,14 @@ class VideoLoader(Loader):
         self._image = None # Current image
         self._image_read = False # Check if the current images was read
 
+        # Get number of frames
+        cap = cv2.VideoCapture(self._video_path)
+        property_id = int(cv2.CAP_PROP_FRAME_COUNT)
+        self.total_frames = int(cv2.VideoCapture.get(cap, property_id)) + 1
+        self.fps = cap.get(cv2.CAP_PROP_FPS)
+        self.width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        self.height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+
         # Skip offset
         for _ in range(self._offset+1):
             if self.has_images():
@@ -85,6 +98,7 @@ class VideoLoader(Loader):
         return ret
 
     def read(self):
+        self._index += 1
         if self._image_read:
             _, self._image = self._cap.read()
         self._image_read = True
