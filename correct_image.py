@@ -49,7 +49,7 @@ class Formatter:
                     sample_image,
                     k1=self._config['image_correction']['k1'],
                     c=self._config['image_correction']['c'],
-                    f=self._config['iamge_correction']['f']
+                    f=self._config['image_correction']['f']
                     )
         else:
             corr_img = sample_image
@@ -122,7 +122,7 @@ class Formatter:
                     image,
                     k1=self._config['image_correction']['k1'],
                     c=self._config['image_correction']['c'],
-                    f=self._config['iamge_correction']['f']
+                    f=self._config['image_correction']['f']
                     )
 
         # apply orthorectification
