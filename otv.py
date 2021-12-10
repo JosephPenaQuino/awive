@@ -137,7 +137,7 @@ class OTV():
         return ret
 
 
-    def run(self, loader: Loader, formatter: Formatter):
+    def run(self, loader: Loader, formatter: Formatter, show_video=False):
         '''Execute OTV and get velocimetry'''
         detector = cv2.FastFeatureDetector_create()
         previous_frame = None
@@ -289,16 +289,18 @@ class OTV():
 
             print('number of trajectories:', len(keypoints_current))
 
-            # if previous_frame is not None:
-            #     output = draw_vectors(
-            #         current_frame,
-            #         keypoints_predicted,
-            #         keypoints_current,
-            #         masks
-            #         )
-            #     cv2.imshow("sparse optical flow", output)
-            #     if cv2.waitKey(10) & 0xFF == ord('q'):
-            #         break
+            if show_video:
+                if previous_frame is not None:
+                    color_frame = cv2.cvtColor(current_frame, cv2.COLOR_GRAY2RGB)
+                    output = draw_vectors(
+                        color_frame,
+                        keypoints_predicted,
+                        keypoints_current,
+                        masks
+                        )
+                    cv2.imshow("sparse optical flow", output)
+                    if cv2.waitKey(10) & 0xFF == ord('q'):
+                        break
             previous_frame = current_frame.copy()
             keypoints_mem_current.append(keypoints_current)
             keypoints_mem_predicted.append(keypoints_predicted)
@@ -354,15 +356,16 @@ def draw_vectors(image, new_list, old_list, masks):
 
 
 
-def main(config_path: str, video_identifier: str):
+def main(config_path: str, video_identifier: str, show_video=True):
     '''Basic example of OTV'''
     loader = get_loader(config_path, video_identifier)
     formatter = Formatter(config_path, video_identifier)
     loader.has_images()
     image = loader.read()
-    prev_gray = formatter.apply_roi_extraction(image)
+    prev_gray = formatter.apply_distortion_correction(image)
+    prev_gray = formatter.apply_roi_extraction(prev_gray)
     otv = OTV(config_path, video_identifier, prev_gray)
-    otv.run(loader, formatter)
+    otv.run(loader, formatter, show_video)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -378,8 +381,14 @@ if __name__ == "__main__":
         help='Path to the config folder',
         type=str,
         default=FOLDER_PATH)
+    parser.add_argument(
+        '-v',
+        '--video',
+        action='store_true',
+        help='Play video while processing')
     args = parser.parse_args()
     CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
     main(config_path=CONFIG_PATH,
          video_identifier=args.video_identifier,
+         show_video=args.video
          )
