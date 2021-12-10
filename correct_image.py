@@ -96,8 +96,8 @@ class Formatter:
 
     def apply_roi_extraction(self, image: np.ndarray, gray=True) -> np.ndarray:
         '''Apply image rotation, cropping and rgb2gray'''
-        image = self._rotate(image)
         image = self._crop(image)
+        image = self._rotate(image)
         if gray:
             image = self._gray(image)
         return image
