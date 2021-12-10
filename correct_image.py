@@ -44,7 +44,15 @@ class Formatter:
         df_from = list(map(list, zip(*[(v) for k, v in x.items()])))
         x = self._config['gcp']['meters']
         df_to = list(map(list, zip(*[(v) for k, v in x.items()])))
-        corr_img = ip.lens_corr(sample_image)
+        if self._config['image_correction']['apply']:
+            corr_img = ip.lens_corr(
+                    sample_image,
+                    k1=self._config['image_correction']['k1'],
+                    c=self._config['image_correction']['c'],
+                    f=self._config['iamge_correction']['f']
+                    )
+        else:
+            corr_img = sample_image
         M, C, __ = ip.orthorect_param(corr_img,
                                       df_from,
                                       df_to,
@@ -109,7 +117,13 @@ class Formatter:
             return image
 
         # apply lens distortion correction
-        image = ip.lens_corr(image)
+        if self._config['image_correction']['apply']:
+            image = ip.lens_corr(
+                    image,
+                    k1=self._config['image_correction']['k1'],
+                    c=self._config['image_correction']['c'],
+                    f=self._config['iamge_correction']['f']
+                    )
 
         # apply orthorectification
         image = ip.orthorect_trans(image,
