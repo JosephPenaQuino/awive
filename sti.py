@@ -1,120 +1,82 @@
-import cv2 as cv
-import sys
-from matplotlib import pyplot as plt
-import numpy as np
+'''Space Time Image Velocimetry'''
+
 import json
-from utils import VideoLoader
-from utils import Formatter
+import argparse
+import cv2
+import numpy as np
+from correct_image import Formatter
+from loader import (get_loader, Loader)
+
+
+FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 
 class STIV():
-    def __init__(self, shape, frames_qnt, ref):
-        self._frames_qnt = frames_qnt
-        self._ref = ref
-        self._width = shape[0]
-        self._height = shape[1]
-        self._stis = [np.empty((1, self._height), dtype=np.uint8) for i in
-                range(frames_qnt)]
+    '''Space Time Image Velocimetry'''
+    def __init__(self, config_path: str, video_identifier: str):
+        with open(config_path) as json_file:
+            self._config = json.load(json_file)[video_identifier]['stiv']
+        self._stis = []
+        self._stis_qnt = len(self._config['lines'])
+        self._generate_st_images(config_path, video_identifier)
 
+    def _generate_st_images(self, config_path, video_identifier):
+        # initialize set of sti images
+        for _ in range(self._stis_qnt):
+            self._stis.append([])
 
-    def append(self, image):
-        for i in range(self._frames_qnt):
-            offset = i*10
-            ref = self._width//2 + offset
-            row = image[ref:ref+ 1, :]
-            self._stis[i] = np.vstack([self._stis[i], row])
+        # generate space time images
+        loader = get_loader(config_path, video_identifier)
+        formatter = Formatter(config_path, video_identifier)
+
+        # generate all lines
+        print('Generating stis images...')
+        while loader.has_images():
+            image = loader.read()
+            image = formatter.apply_distortion_correction(image)
+            image = formatter.apply_roi_extraction(image)
+
+            coordinates_list = self._config['lines']
+            for i, coordinates in enumerate(coordinates_list):
+                start = coordinates['start']
+                end = coordinates['end']
+                row = image[start[0]:end[0], start[1]:end[1]]
+                self._stis[i].append(row.ravel())
+
+        for i in range(self._stis_qnt):
+            self._stis[i] = np.array(self._stis[i])
 
     @property
-    def stis(self, idx):
-        return self._stis[idx]
+    def stis(self):
+        '''Return Space-Time image'''
+        return self._stis
 
-def scaleImage(image):
-    image = image.astype('float')
-    mmin = np.max(image)
-    r = mmin - np.min(image)
-    image = 255.0*((image - np.min(image))/r)
-    return image.astype('uint8')
+    def run(self, loader: Loader, formatter: Formatter):
+        '''Execute'''
 
-def applyMean(im, imMean, ratio):
-        tmpMean = imMean * ratio 
-        tmpMean = tmpMean.astype('uint8')
-        im = im - tmpMean
-        return scaleImage(im)
 
-def adjust_gamma(image, gamma=1.0):
-    # build a lookup table mapping the pixel values [0, 255] to
-    # their adjusted gamma values
-    invGamma = 1.0 / gamma
-    table = np.array([((i / 255.0) ** invGamma) * 255
-            for i in np.arange(0, 256)]).astype("uint8")
-    # apply gamma correction using the lookup table
-    return cv.LUT(image, table)
-
-def main(option):
-    # Read configuration
-    conf = json.load(open('conf/sti.json'))[option]
-    loader = VideoLoader(conf['video_path'], conf['offset'])
-    h1 = conf['roi']['h1']
-    h2 = conf['roi']['h2']
-    w1 = conf['roi']['w1']
-    w2 = conf['roi']['w2']
-    w = w2 - w1
-    h = h2 - h1
-
-    # Set formatter
-    im = loader.read()
-    formatter = Formatter(im.shape,
-                         conf['rotate_image'],
-                         1.0,
-                         conf['roi']['w1'],
-                         conf['roi']['w2'],
-                         conf['roi']['h1'],
-                         conf['roi']['h2'])
-
-    im = formatter.apply(im)
-    w = im.shape[0]
-    h = im.shape[1]
-
-    # Get average 
-    imMean =  np.zeros((w, h), dtype=np.int64)
-    cnt = 0
-    while loader.has_images():
-        im = formatter.apply(loader.read()).astype(int)
-        imMean += im
-        cnt += 1
-    imMean = (imMean / cnt) * 1
-    imMean = imMean.astype(np.uint8)
-    cv.imshow('image mean', imMean)
-    loader.finish()
-
-    # Apply STIV
-    loader = VideoLoader(conf['video_path'], conf['offset'])
-    frameNumber = 1
-    ref = 9
-    stiv = STIV((w, h), frameNumber, ref)
-
-    # clahe = cv.createCLAHE(clipLimit=3.0, tileGridSize=(4, 4))
-
-    while loader.has_images():
-        im = formatter.apply(loader.read())
-        # im = applyMean(im, imMean, 0.5)
-
-        # imm = clahe.apply(imm)
-        # imm = (255.0*(((imm - 80).astype("uint8")) / 120)).astype("uint8")
-        # imm = adjust_gamma(imm, 0.9)
-
-        stiv.append(im)
-    
-    for i in range(frameNumber):
-        cv.imshow(f'sti_{i:02}', stiv._stis[i])
-    cv.imshow("frame", im)
-    cv.waitKey(0) 
-    cv.destroyAllWindows()
-    loader.finish()
+def main(config_path: str, video_identifier: str):
+    '''Basic example of STIV usage'''
+    stiv = STIV(config_path, video_identifier)
+    stiv.run(loader, formatter)
 
 
 if __name__ == '__main__':
-    option = 'd0'
-    if len(sys.argv) > 1:
-        option = sys.argv[1]
-    main(option)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "statio_name",
+        help="Name of the station to be analyzed")
+    parser.add_argument(
+        "video_identifier",
+        help="Index of the video of the json config file")
+    parser.add_argument(
+        '-p',
+        '--path',
+        help='Path to the config folder',
+        type=str,
+        default=FOLDER_PATH)
+    args = parser.parse_args()
+    CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
+    main(config_path=CONFIG_PATH,
+         video_identifier=args.video_identifier,
+         )
