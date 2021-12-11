@@ -51,14 +51,16 @@ class STIV():
         '''Return Space-Time image'''
         return self._stis
 
-    def run(self, loader: Loader, formatter: Formatter):
+    def run(self):
         '''Execute'''
+        for i, sti in enumerate(self._stis):
+            print(f'space time image {i} shape: {sti.shape}')
 
 
 def main(config_path: str, video_identifier: str):
     '''Basic example of STIV usage'''
     stiv = STIV(config_path, video_identifier)
-    stiv.run(loader, formatter)
+    stiv.run()
 
 
 if __name__ == '__main__':
