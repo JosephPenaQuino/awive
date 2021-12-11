@@ -105,7 +105,7 @@ class STIV():
         cv2.line(image, new_point, old_point, 255, 1)
         return image
 
-    def run(self):
+    def run(self, show_image=False):
         '''Execute'''
         window_width = self._config['window_shape'][0]
         window_height = self._config['window_shape'][1]
@@ -145,9 +145,10 @@ class STIV():
 
             # save and plot iamge
             np.save('stiv_final.npy', final_image)
-            cv2.imshow('stiv final', final_image)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+            if show_image:
+                cv2.imshow('stiv final', final_image)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
 
         total = 0
         for vel in velocities:
@@ -157,10 +158,10 @@ class STIV():
 
 
 
-def main(config_path: str, video_identifier: str):
+def main(config_path: str, video_identifier: str, show_image=True):
     '''Basic example of STIV usage'''
     stiv = STIV(config_path, video_identifier)
-    stiv.run()
+    stiv.run(show_image)
 
 
 if __name__ == '__main__':
@@ -177,8 +178,14 @@ if __name__ == '__main__':
         help='Path to the config folder',
         type=str,
         default=FOLDER_PATH)
+    parser.add_argument(
+        '-i',
+        '--image',
+        action='store_true',
+        help='Show every space time image')
     args = parser.parse_args()
     CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
     main(config_path=CONFIG_PATH,
          video_identifier=args.video_identifier,
+         show_image=args.image
          )
