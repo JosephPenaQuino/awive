@@ -92,7 +92,11 @@ class Formatter:
         return image
 
     def _crop(self, image: np.ndarray) -> np.ndarray:
-        return image[self._slice[0], self._slice[1]]
+        new_image =  image[self._slice[0], self._slice[1]]
+        self._shape = (new_image.shape[0], new_image.shape[1])
+        # TODO: this shouldn't be done here. Find a better way
+        self._rotation_matrix = self._get_rotation_matrix()
+        return new_image
 
     def apply_roi_extraction(self, image: np.ndarray, gray=True) -> np.ndarray:
         '''Apply image rotation, cropping and rgb2gray'''
