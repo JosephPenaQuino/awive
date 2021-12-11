@@ -1,120 +1,191 @@
-import cv2 as cv
-import sys
-from matplotlib import pyplot as plt
-import numpy as np
+'''Space Time Image Velocimetry'''
+
 import json
-from utils import VideoLoader
-from utils import Formatter
+import math
+import argparse
+import cv2
+import numpy as np
+from correct_image import Formatter
+from loader import get_loader
+
+
+FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 
 class STIV():
-    def __init__(self, shape, frames_qnt, ref):
-        self._frames_qnt = frames_qnt
-        self._ref = ref
-        self._width = shape[0]
-        self._height = shape[1]
-        self._stis = [np.empty((1, self._height), dtype=np.uint8) for i in
-                range(frames_qnt)]
+    '''Space Time Image Velocimetry'''
+    def __init__(self, config_path: str, video_identifier: str):
+        with open(config_path) as json_file:
+            root_config = json.load(json_file)[video_identifier]
+            self._config = root_config['stiv']
+        # Shall be initialized later
+        self._fps = None
+
+        self._stis = []
+        self._stis_qnt = len(self._config['lines'])
+        self._ksize = self._config['ksize']
+        self._generate_st_images(config_path, video_identifier)
+
+        self._ppm = root_config['PPM']
+
+    def _get_velocity(self, angle):
+        '''Given STI pattern angle, calculate velocity'''
+        angle_radians = math.pi * angle / 180.0
+        velocity = math.tan(angle_radians) * self._fps / self._ppm
+        return velocity
+
+    def _generate_st_images(self, config_path, video_identifier):
+        # generate space time images
+        loader = get_loader(config_path, video_identifier)
+        formatter = Formatter(config_path, video_identifier)
+        self._fps = loader.fps
+        # self._stis.append(np.load('sti_00.npy'))
+        # return
+
+        # initialize set of sti images
+        for _ in range(self._stis_qnt):
+            self._stis.append([])
+
+        # generate all lines
+        print('Generating stis images...')
+        while loader.has_images():
+            image = loader.read()
+            image = formatter.apply_distortion_correction(image)
+            image = formatter.apply_roi_extraction(image)
 
 
-    def append(self, image):
-        for i in range(self._frames_qnt):
-            offset = i*10
-            ref = self._width//2 + offset
-            row = image[ref:ref+ 1, :]
-            self._stis[i] = np.vstack([self._stis[i], row])
+            coordinates_list = self._config['lines']
+            for i, coordinates in enumerate(coordinates_list):
+                start = coordinates['start']
+                end = coordinates['end']
+                row = image[start[0]:end[0], start[1]:end[1]]
+                self._stis[i].append(row.ravel())
+
+        for i in range(self._stis_qnt):
+            self._stis[i] = np.array(self._stis[i])
 
     @property
-    def stis(self, idx):
-        return self._stis[idx]
+    def stis(self):
+        '''Return Space-Time image'''
+        return self._stis
 
-def scaleImage(image):
-    image = image.astype('float')
-    mmin = np.max(image)
-    r = mmin - np.min(image)
-    image = 255.0*((image - np.min(image))/r)
-    return image.astype('uint8')
+    def _process_sti(self, image: np.ndarray):
+        '''process sti image'''
+        sobelx = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=self._ksize)
+        sobelt = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=self._ksize)
 
-def applyMean(im, imMean, ratio):
-        tmpMean = imMean * ratio 
-        tmpMean = tmpMean.astype('uint8')
-        im = im - tmpMean
-        return scaleImage(im)
+        Jxx = sum(sum(sobelx * sobelx))
+        Jtt = sum(sum(sobelt * sobelt))
+        Jxt = sum(sum(sobelx * sobelt))
+        angle = 180 *  math.atan2(2*Jxt, Jtt - Jxx) / 2 / math.pi
+        coherence = math.sqrt((Jtt-Jxx)**2 + 4*Jxt**2) / (Jxx + Jtt)
+        return angle, coherence
 
-def adjust_gamma(image, gamma=1.0):
-    # build a lookup table mapping the pixel values [0, 255] to
-    # their adjusted gamma values
-    invGamma = 1.0 / gamma
-    table = np.array([((i / 255.0) ** invGamma) * 255
-            for i in np.arange(0, 256)]).astype("uint8")
-    # apply gamma correction using the lookup table
-    return cv.LUT(image, table)
+    @staticmethod
+    def _get_new_point(point, angle, length):
+        '''
+        point - Tuple (x, y)
+        angle - Angle you want your end point at in degrees.
+        length - Length of the line you want to plot.
 
-def main(option):
-    # Read configuration
-    conf = json.load(open('conf/sti.json'))[option]
-    loader = VideoLoader(conf['video_path'], conf['offset'])
-    h1 = conf['roi']['h1']
-    h2 = conf['roi']['h2']
-    w1 = conf['roi']['w1']
-    w2 = conf['roi']['w2']
-    w = w2 - w1
-    h = h2 - h1
+        Will plot the line on a 10 x 10 plot.
+        '''
+        # unpack the first point
+        x, y = point
+        # find the end point
+        rad_angle = math.radians(angle)
+        endy = length * math.sin(rad_angle)
+        endx = length * math.cos(rad_angle)
+        return int(endx+x), int(-endy+y)
 
-    # Set formatter
-    im = loader.read()
-    formatter = Formatter(im.shape,
-                         conf['rotate_image'],
-                         1.0,
-                         conf['roi']['w1'],
-                         conf['roi']['w2'],
-                         conf['roi']['h1'],
-                         conf['roi']['h2'])
+    def _get_image_with_line(self, image, angle):
+        (width, height) = image.shape
+        old_point = (int(width/2), int(height/2))
+        new_point = self._get_new_point(old_point, angle, 30)
+        cv2.line(image, new_point, old_point, 255, 1)
+        return image
 
-    im = formatter.apply(im)
-    w = im.shape[0]
-    h = im.shape[1]
+    def run(self, show_image=False):
+        '''Execute'''
+        window_width = self._config['window_shape'][0]
+        window_height = self._config['window_shape'][1]
+        velocities = []
+        for idx, sti in enumerate(self._stis):
+            print(f'space time image {idx} shape: {sti.shape}')
+            width = sti.shape[0]
+            height = sti.shape[1]
+            final_image = []
+            angle_accumulated = 0
+            c_total = 0
+            for i in range(width//window_width):
+                final_image.append([])
+                for j in range(height//window_height):
+                    s = [i*window_width,(i+1)*window_width]
+                    e = [j*window_height,(j+1)*window_height]
+                    image_window = sti[s[0]:s[1], e[0]:e[1]]
+                    angle, coherence = self._process_sti(image_window)
+                    angle_accumulated += (angle * coherence)
+                    c_total += coherence
+                    # print((f'- at ({i}, {j}): angle = {angle:0.2f}, '
+                    #        f'coherence={coherence:0.2f}'))
+                    new_image = self._get_image_with_line(
+                            image_window,
+                            angle
+                            )
+                    final_image[i].append(new_image)
+                final_image[i] = np.hstack(final_image[i])
+            final_image = np.vstack(final_image)
 
-    # Get average 
-    imMean =  np.zeros((w, h), dtype=np.int64)
-    cnt = 0
-    while loader.has_images():
-        im = formatter.apply(loader.read()).astype(int)
-        imMean += im
-        cnt += 1
-    imMean = (imMean / cnt) * 1
-    imMean = imMean.astype(np.uint8)
-    cv.imshow('image mean', imMean)
-    loader.finish()
+            mean_angle = angle_accumulated / c_total
+            print("mean angle:", round(mean_angle, 2))
 
-    # Apply STIV
-    loader = VideoLoader(conf['video_path'], conf['offset'])
-    frameNumber = 1
-    ref = 9
-    stiv = STIV((w, h), frameNumber, ref)
+            velocity = self._get_velocity(mean_angle)
+            print("velocity", round(velocity, 4))
+            velocities.append(velocity)
 
-    # clahe = cv.createCLAHE(clipLimit=3.0, tileGridSize=(4, 4))
+            # save and plot iamge
+            np.save('stiv_final.npy', final_image)
+            if show_image:
+                cv2.imshow('stiv final', final_image)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
 
-    while loader.has_images():
-        im = formatter.apply(loader.read())
-        # im = applyMean(im, imMean, 0.5)
+        total = 0
+        for vel in velocities:
+            total += vel
+        total /= len(velocities)
+        print('velocity:', total)
 
-        # imm = clahe.apply(imm)
-        # imm = (255.0*(((imm - 80).astype("uint8")) / 120)).astype("uint8")
-        # imm = adjust_gamma(imm, 0.9)
 
-        stiv.append(im)
-    
-    for i in range(frameNumber):
-        cv.imshow(f'sti_{i:02}', stiv._stis[i])
-    cv.imshow("frame", im)
-    cv.waitKey(0) 
-    cv.destroyAllWindows()
-    loader.finish()
+
+def main(config_path: str, video_identifier: str, show_image=True):
+    '''Basic example of STIV usage'''
+    stiv = STIV(config_path, video_identifier)
+    stiv.run(show_image)
 
 
 if __name__ == '__main__':
-    option = 'd0'
-    if len(sys.argv) > 1:
-        option = sys.argv[1]
-    main(option)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "statio_name",
+        help="Name of the station to be analyzed")
+    parser.add_argument(
+        "video_identifier",
+        help="Index of the video of the json config file")
+    parser.add_argument(
+        '-p',
+        '--path',
+        help='Path to the config folder',
+        type=str,
+        default=FOLDER_PATH)
+    parser.add_argument(
+        '-i',
+        '--image',
+        action='store_true',
+        help='Show every space time image')
+    args = parser.parse_args()
+    CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
+    main(config_path=CONFIG_PATH,
+         video_identifier=args.video_identifier,
+         show_image=args.image
+         )
