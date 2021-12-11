@@ -6,7 +6,7 @@ import argparse
 import cv2
 import numpy as np
 from correct_image import Formatter
-from loader import (get_loader, Loader)
+from loader import get_loader
 
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
@@ -16,21 +16,35 @@ class STIV():
     '''Space Time Image Velocimetry'''
     def __init__(self, config_path: str, video_identifier: str):
         with open(config_path) as json_file:
-            self._config = json.load(json_file)[video_identifier]['stiv']
+            root_config = json.load(json_file)[video_identifier]
+            self._config = root_config['stiv']
+        # Shall be initialized later
+        self._fps = None
+
         self._stis = []
         self._stis_qnt = len(self._config['lines'])
         self._ksize = self._config['ksize']
-        # self._generate_st_images(config_path, video_identifier)
-        self._stis.append(np.load('sti_00.npy'))
+        self._generate_st_images(config_path, video_identifier)
+
+        self._ppm = root_config['PPM']
+
+    def _get_velocity(self, angle):
+        '''Given STI pattern angle, calculate velocity'''
+        angle_radians = math.pi * angle / 180.0
+        velocity = math.tan(angle_radians) * self._fps / self._ppm
+        return velocity
 
     def _generate_st_images(self, config_path, video_identifier):
-        # initialize set of sti images
-        for _ in range(self._stis_qnt):
-            self._stis.append([])
-
         # generate space time images
         loader = get_loader(config_path, video_identifier)
         formatter = Formatter(config_path, video_identifier)
+        self._fps = loader.fps
+        # self._stis.append(np.load('sti_00.npy'))
+        # return
+
+        # initialize set of sti images
+        for _ in range(self._stis_qnt):
+            self._stis.append([])
 
         # generate all lines
         print('Generating stis images...')
@@ -38,6 +52,7 @@ class STIV():
             image = loader.read()
             image = formatter.apply_distortion_correction(image)
             image = formatter.apply_roi_extraction(image)
+
 
             coordinates_list = self._config['lines']
             for i, coordinates in enumerate(coordinates_list):
@@ -94,25 +109,25 @@ class STIV():
         '''Execute'''
         window_width = self._config['window_shape'][0]
         window_height = self._config['window_shape'][1]
+        velocities = []
         for idx, sti in enumerate(self._stis):
             print(f'space time image {idx} shape: {sti.shape}')
             width = sti.shape[0]
             height = sti.shape[1]
             final_image = []
-            wm = window_width//2
-            hm = window_height//2
+            angle_accumulated = 0
+            c_total = 0
             for i in range(width//window_width):
                 final_image.append([])
                 for j in range(height//window_height):
                     s = [i*window_width,(i+1)*window_width]
                     e = [j*window_height,(j+1)*window_height]
                     image_window = sti[s[0]:s[1], e[0]:e[1]]
-                    # cv2.imshow('image window', image_window)
-                    # cv2.waitKey(0)
-                    # cv2.destroyAllWindows()
                     angle, coherence = self._process_sti(image_window)
-                    print((f'- at ({i}, {j}): angle = {angle:0.2f}, '
-                           f'coherence={coherence:0.2f}'))
+                    angle_accumulated += (angle * coherence)
+                    c_total += coherence
+                    # print((f'- at ({i}, {j}): angle = {angle:0.2f}, '
+                    #        f'coherence={coherence:0.2f}'))
                     new_image = self._get_image_with_line(
                             image_window,
                             angle
@@ -121,11 +136,24 @@ class STIV():
                 final_image[i] = np.hstack(final_image[i])
             final_image = np.vstack(final_image)
 
+            mean_angle = angle_accumulated / c_total
+            print("mean angle:", round(mean_angle, 2))
+
+            velocity = self._get_velocity(mean_angle)
+            print("velocity", round(velocity, 4))
+            velocities.append(velocity)
+
             # save and plot iamge
             np.save('stiv_final.npy', final_image)
             cv2.imshow('stiv final', final_image)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
+
+        total = 0
+        for vel in velocities:
+            total += vel
+        total /= len(velocities)
+        print('velocity:', total)
 
 
 
