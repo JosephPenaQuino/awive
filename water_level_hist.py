@@ -11,7 +11,6 @@ import json
 import argparse
 import numpy as np
 import cv2
-from matplotlib import pyplot as plt
 from loader import get_loader
 
 
