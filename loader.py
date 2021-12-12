@@ -82,13 +82,16 @@ class VideoLoader(Loader):
         property_id = int(cv2.CAP_PROP_FRAME_COUNT)
         self.total_frames = int(cv2.VideoCapture.get(cap, property_id)) + 1
         self.fps = cap.get(cv2.CAP_PROP_FPS)
-        self.width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-        self.height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        self.width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
         # Skip offset
         for _ in range(self._offset+1):
             if self.has_images():
                 self.read()
+    @property
+    def image_shape(self):
+        return (self.width, self.height)
 
     def has_images(self):
         if not self._cap.isOpened():
