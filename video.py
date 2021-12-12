@@ -11,7 +11,7 @@ FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 RESIZE_RATIO = 5
 
 
-def play(loader: Loader, formatter: Formatter, undistort=True, roi=True):
+def play(loader: Loader, formatter: Formatter, undistort=True, roi=True, time_delay=1):
     '''Plays a video'''
 
     while loader.has_images():
@@ -22,17 +22,17 @@ def play(loader: Loader, formatter: Formatter, undistort=True, roi=True):
             image = formatter.apply_roi_extraction(image)
         lil_im = cv2.resize(image, (1000, 1000))
         cv2.imshow('Video', lil_im)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if cv2.waitKey(time_delay) & 0xFF == ord('q'):
             print ('Finished by key \'q\'')
             break
     cv2.destroyAllWindows()
 
 
-def main(config_path: str, video_identifier: str, undistort=True, roi=True):
+def main(config_path: str, video_identifier: str, undistort=True, roi=True, time_delay=1):
     '''Read configurations and play video'''
     loader = get_loader(config_path, video_identifier)
     formatter = Formatter(config_path, video_identifier)
-    play(loader, formatter, undistort, roi)
+    play(loader, formatter, undistort, roi, time_delay)
 
 
 if __name__ == "__main__":
@@ -53,10 +53,17 @@ if __name__ == "__main__":
         '--roi',
         action='store_true',
         help='Format image using selecting only roi area')
+    parser.add_argument(
+        '-t',
+        '--time',
+        default=1,
+        type=int,
+        help='Time delay between each frame (ms)')
     args = parser.parse_args()
     CONFIG_PATH = f'{FOLDER_PATH}/{args.statio_name}.json'
     main(config_path=CONFIG_PATH,
          video_identifier=args.video_identifier,
          undistort=args.undistort,
-         roi=args.roi
+         roi=args.roi,
+         time_delay=args.time
          )
