@@ -103,7 +103,9 @@ class VideoLoader(Loader):
     def read(self):
         self._index += 1
         if self._image_read:
-            _, self._image = self._cap.read()
+            ret, self._image = self._cap.read()
+            if not ret:
+                print('error at reading')
         self._image_read = True
         return self._image
 
