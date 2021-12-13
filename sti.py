@@ -159,7 +159,7 @@ class STIV():
 
             # save and plot iamge
             final_image = self._stis[idx] + mask
-            np.save('stiv_final.npy', final_image)
+            np.save(f'stiv_final_{idx:02}.npy', final_image)
             if show_image:
                 cv2.imshow('stiv final', final_image)
                 cv2.waitKey(0)
