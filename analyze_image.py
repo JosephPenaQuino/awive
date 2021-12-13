@@ -4,6 +4,7 @@
 
 import argparse
 import numpy as np
+import cv2
 
 from loader import get_loader
 from correct_image import Formatter
@@ -13,17 +14,21 @@ FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 
 def main(config_path: str, video_identifier: str, entire_frame=False,
-        undistort=True, roi=True):
+        undistort=True, roi=True, get_frame=True):
     '''Save the first image as numpy file'''
     loader = get_loader(config_path, video_identifier)
     formatter = Formatter(config_path, video_identifier)
     image = loader.read()
+    if get_frame:
+        cv2.imwrite('image.png', image)
     if entire_frame:
         formatter.show_entire_image()
     if undistort:
         image = formatter.apply_distortion_correction(image)
     if roi:
         image = formatter.apply_roi_extraction(image)
+    if get_frame:
+        cv2.imwrite('image.png', image)
     np.save('tmp.npy', image)
 
 
@@ -46,6 +51,11 @@ if __name__ == "__main__":
         action='store_true',
         help='Format image using distortion correction')
     parser.add_argument(
+        '-g',
+        '--getframe',
+        action='store_true',
+        help='Get first frame')
+    parser.add_argument(
         '-r',
         '--roi',
         action='store_true',
@@ -56,4 +66,6 @@ if __name__ == "__main__":
          video_identifier=args.video_identifier,
          entire_frame=args.frame,
          undistort=args.undistort,
-         roi=args.roi)
+         roi=args.roi,
+         get_frame=args.getframe,
+         )
