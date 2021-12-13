@@ -1,3 +1,4 @@
+#!/home/joseph/anaconda3/envs/imageProcessing/bin/python3
 '''Space Time Image Velocimetry'''
 
 import json
@@ -77,9 +78,11 @@ class STIV():
 
     def _process_sti(self, image: np.ndarray):
         '''process sti image'''
-        # image = cv2.medianBlur(image, 7)
+        image = cv2.medianBlur(image, 7)
         sobelx = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=self._ksize)
         sobelt = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=self._ksize)
+        if sobelx.sum() == 0 and sobelt.sum() == 0:
+            return 0, 0
 
         Jxx = (sobelx * sobelx).sum()
         Jtt = (sobelt * sobelt).sum()
