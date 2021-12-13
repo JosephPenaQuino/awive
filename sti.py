@@ -14,10 +14,11 @@ FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 class STIV():
     '''Space Time Image Velocimetry'''
-    def __init__(self, config_path: str, video_identifier: str):
+    def __init__(self, config_path: str, video_identifier: str, debug=False):
         with open(config_path) as json_file:
             root_config = json.load(json_file)[video_identifier]
             self._config = root_config['stiv']
+        self._debug = debug
         # Shall be initialized later
         self._fps = None
 
@@ -25,6 +26,7 @@ class STIV():
         self._stis_qnt = len(self._config['lines'])
         self._ksize = self._config['ksize']
         self._generate_st_images(config_path, video_identifier)
+        self._overlap = self._config['overlap']
 
         self._ppm = root_config['PPM']
         print('frames per second:', self._fps)
@@ -35,7 +37,6 @@ class STIV():
         Given STI pattern angle, calculate velocity
         - angle in radians
         '''
-        # angle_radians = math.pi * angle / 180.0
         velocity = math.tan(angle) * self._fps / self._ppm
         return velocity
 
@@ -44,8 +45,6 @@ class STIV():
         loader = get_loader(config_path, video_identifier)
         formatter = Formatter(config_path, video_identifier)
         self._fps = loader.fps
-        # self._stis.append(np.load('sti_00.npy'))
-        # return
 
         # initialize set of sti images
         for _ in range(self._stis_qnt):
@@ -85,7 +84,6 @@ class STIV():
         Jxx = (sobelx * sobelx).sum()
         Jtt = (sobelt * sobelt).sum()
         Jxt = (sobelx * sobelt).sum()
-        # angle = 180 *  math.atan2(2*Jxt, Jtt - Jxx) / 2 / math.pi
         angle =  math.atan2(2*Jxt, Jtt - Jxx) / 2
         coherence = math.sqrt((Jtt-Jxx)**2 + 4*Jxt**2) / (Jxx + Jtt)
         return angle, coherence
@@ -102,23 +100,20 @@ class STIV():
         # unpack the first point
         x, y = point
         # find the end point
-        # rad_angle = math.radians(angle)
         endy = length * math.cos(angle)
         endx = length * math.sin(angle)
         return int(endx+x), int(-endy+y)
 
-    def _get_image_with_line(self, image, angle):
-        # angle_ = 180 * angle / math.pi
+    def _draw_angle(self, image, angle, position):
         (width, height) = image.shape
-        old_point = (int(width/2), int(height/2))
-        new_point = self._get_new_point(old_point, angle, 30)
-        cv2.line(image, new_point, old_point, 255, 1)
+        new_point = self._get_new_point(position, angle, 10)
+        cv2.line(image, new_point, position, 255, 1)
         return image
 
     def run(self, show_image=False):
         '''Execute'''
-        window_width = self._config['window_shape'][0]
-        window_height = self._config['window_shape'][1]
+        window_width = int(self._config['window_shape'][0]/2)
+        window_height = int(self._config['window_shape'][1]/2)
         velocities = []
         for idx, sti in enumerate(self._stis):
             print(f'space time image {idx} shape: {sti.shape}')
@@ -127,33 +122,43 @@ class STIV():
             final_image = []
             angle_accumulated = 0
             c_total = 0
-            for i in range(width//window_width):
-                final_image.append([])
-                for j in range(height//window_height):
-                    s = [i*window_width,(i+1)*window_width]
-                    e = [j*window_height,(j+1)*window_height]
-                    image_window = sti[s[0]:s[1], e[0]:e[1]]
+
+            # plot vectors
+            mask = np.zeros(sti.shape)
+
+            s = window_width
+            i = 0
+            while s + window_width < width:
+                j = 0
+                e = window_height
+                while e + window_height < height:
+                    ss = slice(s-window_width, s+window_width)
+                    ee = slice(e-window_height, e+window_height)
+                    image_window = sti[ss,ee]
                     angle, coherence = self._process_sti(image_window)
                     angle_accumulated += (angle * coherence)
                     c_total += coherence
-                    # print((f'- at ({i}, {j}): angle = {angle:0.2f}, '
-                    #        f'coherence={coherence:0.2f}'))
-                    new_image = self._get_image_with_line(
-                            image_window,
-                            angle
-                            )
-                    final_image[i].append(new_image)
-                final_image[i] = np.hstack(final_image[i])
-            final_image = np.vstack(final_image)
+                    if self._debug:
+                        print((f'- at ({i}, {j}): angle = '
+                               f'- in ({s}, {e}): angle = '
+                               f'{math.degrees(angle):0.2f}, '
+                               f'coherence={coherence:0.2f}, '
+                               f'velocity={round(self._get_velocity(angle),2)}'))
+                    mask = self._draw_angle(mask, angle, (e, s))
+                    j+=1
+                    e += int(self._overlap)
+                i+=1
+                s += int(self._overlap)
 
             mean_angle = angle_accumulated / c_total
-            print("weighted mean angle:", round(mean_angle, 2))
+            print("weighted mean angle:", round(math.degrees(mean_angle), 2))
 
             velocity = self._get_velocity(mean_angle)
-            print("velocity", round(velocity, 4))
+            print("velocity", round(velocity, 2))
             velocities.append(velocity)
 
             # save and plot iamge
+            final_image = self._stis[idx] + mask
             np.save('stiv_final.npy', final_image)
             if show_image:
                 cv2.imshow('stiv final', final_image)
@@ -168,9 +173,9 @@ class STIV():
 
 
 
-def main(config_path: str, video_identifier: str, show_image=True):
+def main(config_path: str, video_identifier: str, show_image=True, debug=False):
     '''Basic example of STIV usage'''
-    stiv = STIV(config_path, video_identifier)
+    stiv = STIV(config_path, video_identifier, debug)
     stiv.run(show_image)
 
 
@@ -189,6 +194,11 @@ if __name__ == '__main__':
         type=str,
         default=FOLDER_PATH)
     parser.add_argument(
+        '-d',
+        '--debug',
+        action='store_true',
+        help='Activate debug mode')
+    parser.add_argument(
         '-i',
         '--image',
         action='store_true',
@@ -197,5 +207,6 @@ if __name__ == '__main__':
     CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
     main(config_path=CONFIG_PATH,
          video_identifier=args.video_identifier,
-         show_image=args.image
+         show_image=args.image,
+         debug=args.debug
          )
