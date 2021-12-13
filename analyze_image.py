@@ -1,3 +1,5 @@
+#!/home/joseph/anaconda3/envs/imageProcessing/bin/python3
+
 '''Analyze image savig it as numpy file'''
 
 import argparse
