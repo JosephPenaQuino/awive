@@ -58,12 +58,6 @@ class OTV():
         with open(config_path) as json_file:
             root_config = json.load(json_file)[video_identifier]
             config = root_config['otv']
-        self.feature_params = {
-            'maxCorners': config['features']['maxcorner'],
-            'qualityLevel': config['features']['qualitylevel'],
-            'minDistance': config['features']['mindistance'],
-            'blockSize': config['features']['blocksize']
-            }
         self._partial_max_angle = config['partial_max_angle']
         self._partial_min_angle = config['partial_min_angle']
         self._final_max_angle = config['final_max_angle']
@@ -78,12 +72,16 @@ class OTV():
 
         width = root_config['roi']['w2'] - root_config['roi']['w1']
         height = root_config['roi']['h2'] - root_config['roi']['h1']
-        self._mask = cv2.imread(config['mask_path'], 0) > 1
-        self._mask = cv2.resize(
-            self._mask.astype(np.uint8),
-            (height, width),
-            cv2.INTER_NEAREST
-            )
+        mask_path = config['mask_path']
+        if len(mask_path) != 0:
+            self._mask = cv2.imread(mask_path, 0) > 1
+            self._mask = cv2.resize(
+                self._mask.astype(np.uint8),
+                (height, width),
+                cv2.INTER_NEAREST
+                )
+        else:
+            self._mask = None
 
         winsize = config['lk']['winsize']
 
@@ -95,10 +93,6 @@ class OTV():
                          config['lk']['epsilon'])
             }
         self.prev_gray = prev_gray
-        self.prev = cv2.goodFeaturesToTrack(
-            prev_gray,
-            mask=None,
-            **self.feature_params)
 
     def _partial_filtering(self, kp1, kp2, max_distance):
         magnitude = get_magnitude(kp1, kp2)  #only to limit the research window
@@ -123,22 +117,6 @@ class OTV():
             return True
         return False
 
-    def calc(self, gray):
-        '''Calculate velocity vectors of OTV'''
-        self.prev = cv2.goodFeaturesToTrack(
-            self.prev_gray,
-            mask=None,
-            **self.feature_params)
-        next_, status, _ = cv2.calcOpticalFlowPyrLK(self.prev_gray,
-                                                    gray,
-                                                    self.prev,
-                                                    None,
-                                                    **self.lk_params)
-        good_old = self.prev[status == 1].astype(int)
-        good_new = next_[status == 1].astype(int)
-        self.prev_gray = gray.copy()
-        self.prev = good_new.reshape(-1, 1, 2)
-        return good_old, good_new
 
     def _apply_mask(self, image):
         if self._mask is not None:
