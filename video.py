@@ -1,5 +1,7 @@
+#!/home/joseph/anaconda3/envs/imageProcessing/bin/python3
 '''Play  a video'''
 import argparse
+import json
 
 import cv2
 
@@ -11,7 +13,7 @@ FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 RESIZE_RATIO = 5
 
 
-def play(loader: Loader, formatter: Formatter, undistort=True, roi=True, time_delay=1, resize=False):
+def play(loader: Loader, formatter: Formatter, undistort=True, roi=True, time_delay=1, resize=False, wlcrop=None):
     '''Plays a video'''
 
     while loader.has_images():
@@ -20,6 +22,8 @@ def play(loader: Loader, formatter: Formatter, undistort=True, roi=True, time_de
             image = formatter.apply_distortion_correction(image)
         if roi:
             image = formatter.apply_roi_extraction(image)
+        elif wlcrop is not None:
+            image = image[wlcrop[0], wlcrop[1]]
         if resize:
             lil_im = cv2.resize(image, (1000, 1000))
         else:
@@ -31,11 +35,20 @@ def play(loader: Loader, formatter: Formatter, undistort=True, roi=True, time_de
     cv2.destroyAllWindows()
 
 
-def main(config_path: str, video_identifier: str, undistort=True, roi=True, time_delay=1, resize=True):
+def main(config_path: str, video_identifier: str, undistort=True, roi=True, time_delay=1, resize=True, wlcrop=True):
     '''Read configurations and play video'''
     loader = get_loader(config_path, video_identifier)
     formatter = Formatter(config_path, video_identifier)
-    play(loader, formatter, undistort, roi, time_delay, resize)
+    if wlcrop:
+        with open(config_path) as json_file:
+            config = json.load(json_file)[video_identifier]['water_level']
+        roi2  = config['roi']
+        wr0 = slice(roi2[0][0], roi2[1][0])
+        wr1 = slice(roi2[0][1], roi2[1][1])
+        crop = (wr0, wr1)
+    else:
+        crop = None
+    play(loader, formatter, undistort, roi, time_delay, resize, crop)
 
 
 if __name__ == "__main__":
@@ -57,6 +70,11 @@ if __name__ == "__main__":
         action='store_true',
         help='Format image using selecting only roi area')
     parser.add_argument(
+        '-c',
+        '--wlcrop',
+        action='store_true',
+        help='Water level crop')
+    parser.add_argument(
         '-z',
         '--resize',
         action='store_true',
@@ -74,5 +92,6 @@ if __name__ == "__main__":
          undistort=args.undistort,
          roi=args.roi,
          time_delay=args.time,
-         resize=args.resize
+         resize=args.resize,
+         wlcrop=args.wlcrop
          )
