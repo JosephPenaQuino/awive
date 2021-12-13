@@ -27,11 +27,16 @@ class STIV():
         self._generate_st_images(config_path, video_identifier)
 
         self._ppm = root_config['PPM']
+        print('frames per second:', self._fps)
+        print('pixels per minute', self._ppm)
 
     def _get_velocity(self, angle):
-        '''Given STI pattern angle, calculate velocity'''
-        angle_radians = math.pi * angle / 180.0
-        velocity = math.tan(angle_radians) * self._fps / self._ppm
+        '''
+        Given STI pattern angle, calculate velocity
+        - angle in radians
+        '''
+        # angle_radians = math.pi * angle / 180.0
+        velocity = math.tan(angle) * self._fps / self._ppm
         return velocity
 
     def _generate_st_images(self, config_path, video_identifier):
@@ -47,22 +52,24 @@ class STIV():
             self._stis.append([])
 
         # generate all lines
-        print('Generating stis images...')
+        coordinates_list = self._config['lines']
+        cnt=0
         while loader.has_images():
             image = loader.read()
             image = formatter.apply_distortion_correction(image)
             image = formatter.apply_roi_extraction(image)
+            np.save(f'images/im_{cnt:04}.npy', image)
+            cnt+=1
 
-
-            coordinates_list = self._config['lines']
             for i, coordinates in enumerate(coordinates_list):
                 start = coordinates['start']
                 end = coordinates['end']
-                row = image[start[0]:end[0], start[1]:end[1]]
-                self._stis[i].append(row.ravel())
+                row = image[start[0], start[1]:end[1]]
+                self._stis[i].append(row)
 
         for i in range(self._stis_qnt):
             self._stis[i] = np.array(self._stis[i])
+            np.save(f'sti_{i:04}.npy', self._stis[i])
 
     @property
     def stis(self):
@@ -71,13 +78,15 @@ class STIV():
 
     def _process_sti(self, image: np.ndarray):
         '''process sti image'''
-        sobelx = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=self._ksize)
-        sobelt = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=self._ksize)
+        # image = cv2.medianBlur(image, 7)
+        sobelx = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=self._ksize)
+        sobelt = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=self._ksize)
 
-        Jxx = sum(sum(sobelx * sobelx))
-        Jtt = sum(sum(sobelt * sobelt))
-        Jxt = sum(sum(sobelx * sobelt))
-        angle = 180 *  math.atan2(2*Jxt, Jtt - Jxx) / 2 / math.pi
+        Jxx = (sobelx * sobelx).sum()
+        Jtt = (sobelt * sobelt).sum()
+        Jxt = (sobelx * sobelt).sum()
+        # angle = 180 *  math.atan2(2*Jxt, Jtt - Jxx) / 2 / math.pi
+        angle =  math.atan2(2*Jxt, Jtt - Jxx) / 2
         coherence = math.sqrt((Jtt-Jxx)**2 + 4*Jxt**2) / (Jxx + Jtt)
         return angle, coherence
 
@@ -93,12 +102,13 @@ class STIV():
         # unpack the first point
         x, y = point
         # find the end point
-        rad_angle = math.radians(angle)
-        endy = length * math.sin(rad_angle)
-        endx = length * math.cos(rad_angle)
+        # rad_angle = math.radians(angle)
+        endy = length * math.cos(angle)
+        endx = length * math.sin(angle)
         return int(endx+x), int(-endy+y)
 
     def _get_image_with_line(self, image, angle):
+        # angle_ = 180 * angle / math.pi
         (width, height) = image.shape
         old_point = (int(width/2), int(height/2))
         new_point = self._get_new_point(old_point, angle, 30)
@@ -137,7 +147,7 @@ class STIV():
             final_image = np.vstack(final_image)
 
             mean_angle = angle_accumulated / c_total
-            print("mean angle:", round(mean_angle, 2))
+            print("weighted mean angle:", round(mean_angle, 2))
 
             velocity = self._get_velocity(mean_angle)
             print("velocity", round(velocity, 4))
@@ -154,7 +164,7 @@ class STIV():
         for vel in velocities:
             total += vel
         total /= len(velocities)
-        print('velocity:', total)
+        print('Total mean velocity:', round(total, 2))
 
 
 
