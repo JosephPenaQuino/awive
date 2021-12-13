@@ -1,3 +1,4 @@
+#!/home/joseph/anaconda3/envs/imageProcessing/bin/python3
 '''Optical Tracking Image Velocimetry'''
 
 import argparse
@@ -55,7 +56,8 @@ class OTV():
     def __init__(self, config_path: str, video_identifier: str,
             prev_gray: np.ndarray):
         with open(config_path) as json_file:
-            config = json.load(json_file)[video_identifier]['otv']
+            root_config = json.load(json_file)[video_identifier]
+            config = root_config['otv']
         self.feature_params = {
             'maxCorners': config['features']['maxcorner'],
             'qualityLevel': config['features']['qualitylevel'],
@@ -73,6 +75,15 @@ class OTV():
         self._step = config['region_step']
         self._resolution = config['resolution']
         self._pixel_to_real = config['pixel_to_real']
+
+        width = root_config['roi']['w2'] - root_config['roi']['w1']
+        height = root_config['roi']['h2'] - root_config['roi']['h1']
+        self._mask = cv2.imread(config['mask_path'], 0) > 1
+        self._mask = cv2.resize(
+            self._mask.astype(np.uint8),
+            (height, width),
+            cv2.INTER_NEAREST
+            )
 
         winsize = config['lk']['winsize']
 
@@ -125,6 +136,11 @@ class OTV():
         self.prev = good_new.reshape(-1, 1, 2)
         return good_old, good_new
 
+    def _apply_mask(self, image):
+        if self._mask is not None:
+            image = image * self._mask
+        return image
+
     def _init_subregion_list(self, dimension, width):
         ret = []
         n_regions = math.ceil(width*self._resolution / self._step)
@@ -139,6 +155,7 @@ class OTV():
 
     def run(self, loader: Loader, formatter: Formatter, show_video=False):
         '''Execute OTV and get velocimetry'''
+        # initialze parametrers
         detector = cv2.FastFeatureDetector_create()
         previous_frame = None
         keypoints_current = []
@@ -173,6 +190,7 @@ class OTV():
             current_frame = loader.read()
             current_frame = formatter.apply_distortion_correction(current_frame)
             current_frame = formatter.apply_roi_extraction(current_frame)
+            current_frame = self._apply_mask(current_frame)
 
             # get features as a list of KeyPoints
             keypoints = detector.detect(current_frame, None)
