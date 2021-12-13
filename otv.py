@@ -105,6 +105,8 @@ class OTV():
         if magnitude > max_distance:
             return False
         angle = get_angle(kp1, kp2)
+        if angle < 0:
+            angle = angle + 360
         if self._partial_min_angle < angle < self._partial_max_angle:
             return True
         return False
@@ -115,6 +117,8 @@ class OTV():
         if magnitude < self._final_min_distance:
             return False
         angle = get_angle(kp1, kp2)
+        if angle < 0:
+            angle = angle + 360
         if self._final_min_angle < angle < self._final_max_angle:
             return True
         return False
