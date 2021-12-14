@@ -22,6 +22,8 @@ def get_angle(kp1, kp2):
     return math.atan2(kp2.pt[1] - kp1.pt[1] , kp2.pt[0] - kp1.pt[0]) *  180 / math.pi
 
 def _get_velocity(kp1, kp2, real_distance_pixel, time, fps):
+    if time == 0:
+        return 0
     return get_magnitude(kp1, kp2) * real_distance_pixel * fps / time
 
 def compute_stats(velocity):
@@ -90,7 +92,9 @@ class OTV():
             'maxLevel': self._max_level,
             'criteria': (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
                          config['lk']['max_count'],
-                         config['lk']['epsilon'])
+                         config['lk']['epsilon']),
+            'flags': cv2.OPTFLOW_LK_GET_MIN_EIGENVALS,
+            'minEigThreshold': config['lk']['min_eigen_threshold']
             }
         self.prev_gray = prev_gray
 
@@ -101,7 +105,9 @@ class OTV():
         angle = get_angle(kp1, kp2)
         if angle < 0:
             angle = angle + 360
-        if self._partial_min_angle < angle < self._partial_max_angle:
+        if angle == 0 or angle == 360:
+            return True
+        if self._partial_min_angle <= angle <= self._partial_max_angle:
             return True
         return False
 
@@ -113,7 +119,9 @@ class OTV():
         angle = get_angle(kp1, kp2)
         if angle < 0:
             angle = angle + 360
-        if self._final_min_angle < angle < self._final_max_angle:
+        if angle == 0 or angle == 360:
+            return True
+        if self._final_min_angle <= angle <= self._final_max_angle:
             return True
         return False
 
@@ -199,7 +207,7 @@ class OTV():
             print('Analyzing frame:', loader.index)
             if previous_frame is not None:
                 pts1 = cv2.KeyPoint_convert(keypoints_current)
-                pts2, st, _ = cv2.calcOpticalFlowPyrLK(
+                pts2, st, err = cv2.calcOpticalFlowPyrLK(
                     previous_frame,
                     current_frame,
                     pts1,
@@ -314,10 +322,10 @@ class OTV():
         cv2.destroyAllWindows()
         avg, max_, min_, std_dev, count = compute_stats(velocity)
 
-        print('avg:', avg)
-        print('max:', max_)
-        print('min:', min_)
-        print('std_dev:', std_dev)
+        print('avg:', round(avg, 2))
+        print('max:', round(max_, 2))
+        print('min:', round(min_, 2))
+        print('std_dev:', round(std_dev, 2))
         print('count:', count)
 
 
@@ -325,7 +333,7 @@ def draw_vectors(image, new_list, old_list, masks):
     '''Draw vectors of velocity and return the output and update mask'''
     if len(image.shape) == 3:
         color = (0, 255, 0)
-        thick = 2
+        thick = 1
     else:
         color = 255
         thick = 1
