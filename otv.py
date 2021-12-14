@@ -2,6 +2,7 @@
 '''Optical Tracking Image Velocimetry'''
 
 import argparse
+import random
 import json
 import math
 import numpy as np
@@ -184,6 +185,7 @@ class OTV():
 
             # get features as a list of KeyPoints
             keypoints = detector.detect(current_frame, None)
+            random.shuffle(keypoints)
 
             # update lot of lists
             if previous_frame is None:
@@ -322,9 +324,9 @@ class OTV():
         cv2.destroyAllWindows()
         avg, max_, min_, std_dev, count = compute_stats(velocity)
 
-        print('avg:', round(avg, 2))
-        print('max:', round(max_, 2))
-        print('min:', round(min_, 2))
+        print('avg:', round(avg, 4))
+        print('max:', round(max_, 4))
+        print('min:', round(min_, 4))
         print('std_dev:', round(std_dev, 2))
         print('count:', count)
 
