@@ -27,27 +27,29 @@ def _get_velocity(kp1, kp2, real_distance_pixel, time, fps):
         return 0
     return get_magnitude(kp1, kp2) * real_distance_pixel * fps / time
 
-def compute_stats(velocity):
-    avg = 0
-    max_ = 0
-    min_ = 100000000
-    std_dev=0
-    count = 0
-    for i in range(len(velocity)):
-        for j in range(len(velocity[i])):
-            avg += velocity[i][j]
-            max_ = velocity[i][j] if velocity[i][j] > max_ else max_
-            min_ = velocity[i][j] if velocity[i][j] < min_ else min_
-            count += 1
+def reject_outliers(data, m = 2.):
+    d = np.abs(data - np.median(data))
+    mdev = np.median(d)
+    s = d/mdev if mdev else 0.
+    return data[s<m]
 
-    if count  > 0:
-        avg /= count
+def compute_stats(velocity, hist=False):
+    v = np.array(sum(velocity, []))
+    v = reject_outliers(v)
+    count = len(v)
+    if count == 0:
+        return 0, 0, 0, 0, 0
+    avg = v.mean()
+    max_ = v.max()
+    min_ = v.min()
+    std_dev = np.std(v)
 
-    for i in range(len(velocity)):
-        for j in range(len(velocity[i])):
-            std_dev += (velocity[i][j] - avg) ** 2
-    if count > 0:
-        std_dev = math.sqrt(std_dev/count)
+    if hist:
+        import matplotlib.pyplot as plt
+        plt.hist(v.astype(int), density=True, bins=100)
+        plt.ylabel('Probability')
+        plt.xlabel('Data');
+        plt.show()
 
     return avg, max_, min_, std_dev, count
 
@@ -322,7 +324,7 @@ class OTV():
 
         loader.end()
         cv2.destroyAllWindows()
-        avg, max_, min_, std_dev, count = compute_stats(velocity)
+        avg, max_, min_, std_dev, count = compute_stats(velocity, show_video)
 
         print('avg:', round(avg, 4))
         print('max:', round(max_, 4))
