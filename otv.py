@@ -16,7 +16,8 @@ FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 def get_magnitude(kp1, kp2):
     '''get the distance between two keypoints'''
-    return math.sqrt((kp2.pt[1] - kp1.pt[1])**2 + (kp2.pt[0] - kp1.pt[0]) ** 2 )
+    # return math.sqrt((kp2.pt[1] - kp1.pt[1])**2 + (kp2.pt[0] - kp1.pt[0]) ** 2 )
+    return abs(kp2.pt[0] - kp1.pt[0])
 
 def get_angle(kp1, kp2):
     '''get angle between two key points'''
