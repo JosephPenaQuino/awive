@@ -31,7 +31,17 @@ class STIV():
 
         self._ppm = root_config['PPM']
         print('frames per second:', self._fps)
-        print('pixels per minute', self._ppm)
+        print('pixels per meter', self._ppm)
+
+        # create filter window
+        w_size = self._config['filter_window']
+        W_mn = (1 - np.cos(2* math.pi * np.arange(w_size) / w_size)) / 2
+        W_mn = np.tile(W_mn, (w_size, 1))
+        self._filter_win =  W_mn * W_mn.T
+
+        # vertical and horizontal filter width
+        self._vh_filter = 1
+
 
     def _get_velocity(self, angle):
         '''
@@ -44,6 +54,7 @@ class STIV():
     def _generate_st_images(self, config_path, video_identifier):
         # generate space time images
         loader = get_loader(config_path, video_identifier)
+        print('number of frames:', loader.total_frames)
         formatter = Formatter(config_path, video_identifier)
         self._fps = loader.fps
 
@@ -53,23 +64,21 @@ class STIV():
 
         # generate all lines
         coordinates_list = self._config['lines']
-        cnt=0
         while loader.has_images():
             image = loader.read()
             image = formatter.apply_distortion_correction(image)
             image = formatter.apply_roi_extraction(image)
-            np.save(f'images/im_{cnt:04}.npy', image)
-            cnt+=1
 
             for i, coordinates in enumerate(coordinates_list):
                 start = coordinates['start']
                 end = coordinates['end']
                 row = image[start[0], start[1]:end[1]]
+                # print(row)
                 self._stis[i].append(row)
 
         for i in range(self._stis_qnt):
             self._stis[i] = np.array(self._stis[i])
-            np.save(f'sti_{i:04}.npy', self._stis[i])
+            # np.save(f'sti_{i:04}.npy', self._stis[i])
 
     @property
     def stis(self):
@@ -78,10 +87,11 @@ class STIV():
 
     def _process_sti(self, image: np.ndarray):
         '''process sti image'''
-        image = cv2.medianBlur(image, 7)
+        # image = cv2.medianBlur(image, 7)
         sobelx = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=self._ksize)
         sobelt = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=self._ksize)
         if sobelx.sum() == 0 and sobelt.sum() == 0:
+            print("WARNING: gradients are zero")
             return 0, 0
 
         Jxx = (sobelx * sobelx).sum()
@@ -113,6 +123,129 @@ class STIV():
         cv2.line(image, new_point, position, 255, 1)
         return image
 
+    @staticmethod
+    def _conv2d(a, f):
+        '''
+        https://stackoverflow.com/questions/43086557/convolve2d-just-by-using-numpy
+        '''
+        s = f.shape + tuple(np.subtract(a.shape, f.shape) + 1)
+        strd = np.lib.stride_tricks.as_strided
+        subM = strd(a, shape = s, strides = a.strides * 2)
+        return np.einsum('ij,ijkl->kl', f, subM)
+
+    @staticmethod
+    def _transform_data(img, inv=False):
+        '''
+        '''
+        if inv:
+            flag = cv2.WARP_INVERSE_MAP
+        else:
+            flag = cv2.WARP_FILL_OUTLIERS
+
+        ro, col=img.shape
+        cent=(int(col/2),int(ro/2))
+        max_radius = int(np.sqrt(ro**2+col**2)/2)
+        polar=cv2.linearPolar(img,cent,max_radius,flag)
+        return polar
+
+
+
+    def _filter_sti(self, sti: np.ndarray):
+        '''
+        Filter image using method proposed in:
+        "An improvement of the Space-Time Image Velocimetry combined with a new
+        denoising method for estimating river discharge"
+        by:
+        - Zhao, Haoyuan
+        - Chen, Hua
+        - Liu, Bingyi
+        - Liu, Weigao
+        - Xu, Chong Yu
+        - Guo, Shenglian
+        - Wang, Jun
+        '''
+        # window function filtering
+        np.save('f0.npy', sti)
+        size = sti.shape
+        # TODO: Use a better 2d convolution function
+        sti = self._conv2d(sti, self._filter_win)
+        np.save('f1.npy', sti)
+
+        # detection of principal direction of Fourier spectrum
+        sti_fc = np.fft.fft2(sti)
+
+        # filter vertical and horizontal patterns
+        sti_fc[:self._vh_filter,:] = 0
+        sti_fc[-self._vh_filter:,:] = 0
+        sti_fc[:,:self._vh_filter] = 0
+        sti_fc[:,-self._vh_filter:] = 0
+        sti_f = np.abs(np.fft.fftshift(sti_fc))
+
+        # ssize = sti_f.shape
+        # print('initial shape:', ssize)
+        # c_x, c_y = int(ssize[0]/2)+1, int(ssize[1]/2)
+        # amp_x = int(ssize[0]/4)
+        # amp_y = int(ssize[1]/4)
+        # print(amp_x, amp_y)
+        # sti_f = sti_f[c_x-amp_x:c_x+amp_x, c_y-amp_y:c_y+amp_y]
+        # print('shape after:', sti_f.shape)
+        # sti_f = cv2.resize(sti_f, (ssize[1], ssize[0]), interpolation=cv2.INTER_CUBIC)
+        # # filter vertical and horizontal patterns
+        # f = self._vh_filter
+        # sti_f[c_x-f:c_x+f,:] = 0
+        # sti_f[:,c_y-f:c_y+f] = 0
+
+
+
+        np.save('f2.npy', sti_f)
+
+        m = self._transform_data(sti_f)
+
+        np.save('f3.npy', m)
+        line = np.sum(m.T, axis=0)
+        arg = np.argmax(line)
+        amp = 5
+
+        fil = np.zeros(m.shape)
+        xxx = arg-amp
+        yyy = arg+amp
+        if xxx < 0:
+            xxx = 0
+        if yyy > len(line):
+            yyy = len(line)
+        fil[xxx:yyy, :] = 1
+
+        if arg < len(line)/2:
+            arg2 = arg + len(line)/2
+        else:
+            arg2 = arg - len(line)/2
+
+        xx = int(arg2-amp)
+        yy = int(arg2+amp)
+        if xx < 0:
+            xx = 0
+        if yy > len(line):
+            yy = len(line)
+        fil[xx:yy, :] = 1
+
+        m = m * fil
+        np.save('f4.npy', m)
+
+        inv = self._transform_data(m, True)
+        np.save('f5.npy', inv)
+
+        out = np.abs(np.fft.ifft2(np.fft.ifftshift(inv)))
+        np.save('f6.npy', out)
+
+        out = cv2.resize(out, (size[1], size[0]), interpolation = cv2.INTER_AREA)
+
+        out = np.interp(
+                out,
+                (out.min(), out.max()),
+                (0, 255)
+                ).astype(np.uint8)
+        return out
+
     def run(self, show_image=False):
         '''Execute'''
         window_width = int(self._config['window_shape'][0]/2)
@@ -120,6 +253,8 @@ class STIV():
         velocities = []
         for idx, sti in enumerate(self._stis):
             print(f'space time image {idx} shape: {sti.shape}')
+            self._stis[idx] = self._filter_sti(sti)
+            sti = self._stis[idx]
             width = sti.shape[0]
             height = sti.shape[1]
             final_image = []
