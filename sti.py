@@ -120,7 +120,7 @@ class STIV():
 
     def _process_sti(self, image: np.ndarray):
         '''process sti image'''
-        # image = cv2.medianBlur(image, 7)
+        # image = cv2.medianBlur(image, 5)
         sobelx = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=self._ksize)
         sobelt = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=self._ksize)
         if sobelx.sum() == 0 and sobelt.sum() == 0:
@@ -197,6 +197,15 @@ class STIV():
         - Guo, Shenglian
         - Wang, Jun
         '''
+        # resize in order to have more precision
+        x = min(sti.shape)
+        if x == sti.shape[0]:
+            sti = sti[:,:x]
+        else:
+            sti = sti[:x,:]
+        print(x)
+        # the example of the paper uses 600x600, so do I
+        sti = cv2.resize(sti, (600, 600), interpolation=cv2.INTER_LINEAR)
         np.save('f0.npy', sti)
 
         # WINDOW FUNCTION FILTERING
@@ -294,8 +303,8 @@ class STIV():
                 mask,
                 angle,
                 (int(sti.shape[1]/2), int(sti.shape[0]/2)),
-                thick=4,
-                amplitud=30)
+                thick=10,
+                amplitud=80)
 
         return velocity, mask
 
@@ -355,8 +364,8 @@ class STIV():
         for idx, sti in enumerate(self._stis):
             print(f'space time image {idx} shape: {sti.shape}')
             sti = self._filter_sti(sti)
-            velocity, mask = self._calculate_MOT_using_GMT(sti)
-            # velocity, mask = self._calculate_MOT_using_FFT(sti)
+            # velocity, mask = self._calculate_MOT_using_GMT(sti)
+            velocity, mask = self._calculate_MOT_using_FFT(sti)
             velocities.append(velocity)
 
             final_image = sti + mask
