@@ -42,6 +42,8 @@ class STIV():
         # vertical and horizontal filter width
         self._vh_filter = 1
 
+        self._polar_filter_width = self._config['polar_filter_width']
+
 
     def _get_velocity(self, angle):
         '''
@@ -79,6 +81,39 @@ class STIV():
         for i in range(self._stis_qnt):
             self._stis[i] = np.array(self._stis[i])
             # np.save(f'sti_{i:04}.npy', self._stis[i])
+
+    @staticmethod
+    def _get_main_freqs(isd):
+        main_freqs = []
+        main_freqs.append(np.argmax(isd))
+        if main_freqs[0] < len(isd) / 2:
+            main_freqs.append(main_freqs[0] + len(isd) / 2)
+        else:
+            main_freqs.append(main_freqs[0] - len(isd) / 2)
+        return main_freqs
+
+    def _apply_angle(self, mask, freq, isd):
+        x = int(freq - self._polar_filter_width)
+        y = int(freq + self._polar_filter_width)
+        print(x, y)
+        if x < 0:
+            x = 0
+            mask[x + len(isd):, :] = 1
+        elif y > len(isd):
+            y = len(isd)
+            mask[:y - len(isd), :] = 1
+        mask[x:y, :] = 1
+        return mask
+
+    def _generate_polar_mask(self, polar_img):
+        # calculate Integral Spectrum Distribution
+        isd = np.sum(polar_img.T, axis=0)
+        main_freqs = self._get_main_freqs(isd)
+        mask = np.zeros(polar_img.shape)
+
+        mask = self._apply_angle(mask, main_freqs[0], isd)
+        mask = self._apply_angle(mask, main_freqs[1], isd)
+        return mask
 
     @property
     def stis(self):
@@ -134,21 +169,22 @@ class STIV():
         return np.einsum('ij,ijkl->kl', f, subM)
 
     @staticmethod
-    def _transform_data(img, inv=False):
+    def _to_polar_system(img: np.ndarray, option='convert'):
         '''
+        Transform 2d image to polar system
         '''
-        if inv:
+        if option == 'invert':
             flag = cv2.WARP_INVERSE_MAP
         else:
             flag = cv2.WARP_FILL_OUTLIERS
 
-        ro, col=img.shape
-        cent=(int(col/2),int(ro/2))
-        max_radius = int(np.sqrt(ro**2+col**2)/2)
-        polar=cv2.linearPolar(img,cent,max_radius,flag)
+        # TODO: I should add padding
+
+        row, col = img.shape
+        cent = (int(col / 2), int(row / 2))
+        max_radius = int(np.sqrt(row ** 2 + col ** 2) / 2)
+        polar = cv2.linearPolar(img, cent, max_radius, flag)
         return polar
-
-
 
     def _filter_sti(self, sti: np.ndarray):
         '''
@@ -164,87 +200,48 @@ class STIV():
         - Guo, Shenglian
         - Wang, Jun
         '''
-        # window function filtering
         np.save('f0.npy', sti)
+
+        # WINDOW FUNCTION FILTERING
         size = sti.shape
         # TODO: Use a better 2d convolution function
         sti = self._conv2d(sti, self._filter_win)
         np.save('f1.npy', sti)
 
-        # detection of principal direction of Fourier spectrum
-        sti_fc = np.fft.fft2(sti)
-
+        # DETECTION OF PRINCIPAL DIRECTION OF FOURIER SPECTRUM
+        sti_ft = np.abs(np.fft.fftshift(np.fft.fft2(sti)))
         # filter vertical and horizontal patterns
-        sti_fc[:self._vh_filter,:] = 0
-        sti_fc[-self._vh_filter:,:] = 0
-        sti_fc[:,:self._vh_filter] = 0
-        sti_fc[:,-self._vh_filter:] = 0
-        sti_f = np.abs(np.fft.fftshift(sti_fc))
+        c_x = int(sti_ft.shape[0]/2)
+        c_y = int(sti_ft.shape[1]/2)
+        sti_ft[c_x - self._vh_filter:c_x + self._vh_filter, :] = 0
+        sti_ft[:, c_y - self._vh_filter:c_y + self._vh_filter] = 0
+        np.save('f2.npy', sti_ft)
+        # transform to polar system
+        sti_ft_polar = self._to_polar_system(sti_ft)
+        np.save('f3.npy', sti_ft_polar)
 
-        # ssize = sti_f.shape
-        # print('initial shape:', ssize)
-        # c_x, c_y = int(ssize[0]/2)+1, int(ssize[1]/2)
-        # amp_x = int(ssize[0]/4)
-        # amp_y = int(ssize[1]/4)
-        # print(amp_x, amp_y)
-        # sti_f = sti_f[c_x-amp_x:c_x+amp_x, c_y-amp_y:c_y+amp_y]
-        # print('shape after:', sti_f.shape)
-        # sti_f = cv2.resize(sti_f, (ssize[1], ssize[0]), interpolation=cv2.INTER_CUBIC)
-        # # filter vertical and horizontal patterns
-        # f = self._vh_filter
-        # sti_f[c_x-f:c_x+f,:] = 0
-        # sti_f[:,c_y-f:c_y+f] = 0
+        # FILTER IN FREQUENCY DOMAIN
+        polar_mask = self._generate_polar_mask(sti_ft_polar)
+        sti_ft_polar = sti_ft_polar * polar_mask
+        np.save('f4.npy', sti_ft_polar)
 
+        sti_ft_filtered = self._to_polar_system(sti_ft_polar, 'invert')
+        np.save('f5.npy', sti_ft_filtered)
 
+        sti_filtered = np.abs(np.fft.ifft2(np.fft.ifftshift(sti_ft_filtered)))
+        np.save('f6.npy', sti_filtered)
 
-        np.save('f2.npy', sti_f)
+        sti_filtered = cv2.resize(
+                sti_filtered,
+                (size[1], size[0]),
+                interpolation = cv2.INTER_AREA)
 
-        m = self._transform_data(sti_f)
-
-        np.save('f3.npy', m)
-        line = np.sum(m.T, axis=0)
-        arg = np.argmax(line)
-        amp = 5
-
-        fil = np.zeros(m.shape)
-        xxx = arg-amp
-        yyy = arg+amp
-        if xxx < 0:
-            xxx = 0
-        if yyy > len(line):
-            yyy = len(line)
-        fil[xxx:yyy, :] = 1
-
-        if arg < len(line)/2:
-            arg2 = arg + len(line)/2
-        else:
-            arg2 = arg - len(line)/2
-
-        xx = int(arg2-amp)
-        yy = int(arg2+amp)
-        if xx < 0:
-            xx = 0
-        if yy > len(line):
-            yy = len(line)
-        fil[xx:yy, :] = 1
-
-        m = m * fil
-        np.save('f4.npy', m)
-
-        inv = self._transform_data(m, True)
-        np.save('f5.npy', inv)
-
-        out = np.abs(np.fft.ifft2(np.fft.ifftshift(inv)))
-        np.save('f6.npy', out)
-
-        out = cv2.resize(out, (size[1], size[0]), interpolation = cv2.INTER_AREA)
-
-        out = np.interp(
-                out,
-                (out.min(), out.max()),
+        sti_filtered = np.interp(
+                sti_filtered,
+                (sti_filtered.min(), sti_filtered.max()),
                 (0, 255)
                 ).astype(np.uint8)
-        return out
+        return sti_filtered
 
     def run(self, show_image=False):
         '''Execute'''
