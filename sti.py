@@ -50,7 +50,7 @@ class STIV():
         - angle in radians
         '''
         velocity = math.tan(angle) * self._fps / self._ppm
-        return velocity
+        return abs(velocity)
 
     def _generate_st_images(self, config_path, video_identifier):
         # generate space time images
@@ -150,10 +150,9 @@ class STIV():
         endx = length * math.sin(angle)
         return int(endx+x), int(-endy+y)
 
-    def _draw_angle(self, image, angle, position):
-        (width, height) = image.shape
-        new_point = self._get_new_point(position, angle, 10)
-        cv2.line(image, new_point, position, 255, 1)
+    def _draw_angle(self, image, angle, position, thick=1, amplitud=10):
+        new_point = self._get_new_point(position, angle, amplitud)
+        cv2.line(image, new_point, position, 255, thick)
         return image
 
     @staticmethod
@@ -242,6 +241,7 @@ class STIV():
         return sti_filtered
 
     def _generate_final_image(self, sti, mask):
+        '''generate rgb image'''
         new_sti = np.interp(
                 sti,
                 (sti.min(), sti.max()),
@@ -261,61 +261,109 @@ class STIV():
 
         return out
 
-    def run(self, show_image=False):
-        '''Execute'''
+    @staticmethod
+    def _squarify(M):
+        (a, b)=M.shape
+        if a>b:
+            padding=((0,0),(0,a-b))
+        else:
+            padding=((0,b-a),(0,0))
+        return np.pad(M, padding)
+
+    def _calculate_MOT_using_FFT(self, sti):
+        ''''''
+        np.save('g0.npy', sti)
+        sti_canny = cv2.Canny(sti, 10, 10)
+        np.save('g1.npy', sti_canny)
+        sti_padd = self._squarify(sti_canny)
+        np.save('g2.npy', sti_padd)
+        sti_ft = np.abs(np.fft.fftshift(np.fft.fft2(sti_padd)))
+        np.save('g3.npy', sti_ft)
+        sti_ft_polar = self._to_polar_system(sti_ft)
+        np.save('g4.npy', sti_ft_polar)
+        isd = np.sum(sti_ft_polar.T, axis=0)
+        freq, _ = self._get_main_freqs(isd)
+        angle0 = 2*math.pi *freq / sti_ft_polar.shape[0]
+        angle1 = 2*math.pi *freq / sti_ft_polar.shape[1]
+        angle = (angle0 + angle1)/2
+        print("angle:", round(angle, 2))
+        velocity = self._get_velocity(angle)
+        print("velocity:", round(velocity, 2))
+        mask = np.zeros(sti.shape)
+        mask = self._draw_angle(
+                mask,
+                angle,
+                (int(sti.shape[1]/2), int(sti.shape[0]/2)),
+                thick=4,
+                amplitud=30)
+
+        return velocity, mask
+
+    def _calculate_MOT_using_GMT(self, sti: np.ndarray):
+        '''
+        Calcualte MOT using GMT explained:
+        "Development of a non-intrusive and efficient flow monitoring technique:
+        The space-time image velocimetry (STIV)"
+        '''
         window_width = int(self._config['window_shape'][0]/2)
         window_height = int(self._config['window_shape'][1]/2)
+
+        width = sti.shape[0]
+        height = sti.shape[1]
+
+        angle_accumulated = 0
+        c_total = 0
+
+        # plot vectors
+        mask = np.zeros(sti.shape)
+
+        s = window_width
+        i = 0
+        while s + window_width < width:
+            j = 0
+            e = window_height
+            while e + window_height < height:
+                ss = slice(s-window_width, s+window_width)
+                ee = slice(e-window_height, e+window_height)
+                image_window = sti[ss,ee]
+                angle, coherence = self._process_sti(image_window)
+                angle_accumulated += (angle * coherence)
+                c_total += coherence
+                if self._debug:
+                    print((f'- at ({i}, {j}): angle = '
+                           f'- in ({s}, {e}): angle = '
+                           f'{math.degrees(angle):0.2f}, '
+                           f'coherence={coherence:0.2f}, '
+                           f'velocity={round(self._get_velocity(angle),2)}'))
+                mask = self._draw_angle(mask, angle, (e, s))
+                j+=1
+                e += int(self._overlap)
+            i+=1
+            s += int(self._overlap)
+
+        mean_angle = angle_accumulated / c_total
+        print("weighted mean angle:", round(math.degrees(mean_angle), 2))
+
+        velocity = self._get_velocity(mean_angle)
+        print("velocity", round(velocity, 2))
+
+        return velocity, mask
+
+    def run(self, show_image=False):
+        '''Execute'''
         velocities = []
         for idx, sti in enumerate(self._stis):
             print(f'space time image {idx} shape: {sti.shape}')
-            self._stis[idx] = self._filter_sti(sti)
-            sti = self._stis[idx]
-            width = sti.shape[0]
-            height = sti.shape[1]
-            final_image = []
-            angle_accumulated = 0
-            c_total = 0
-
-            # plot vectors
-            mask = np.zeros(sti.shape)
-
-            s = window_width
-            i = 0
-            while s + window_width < width:
-                j = 0
-                e = window_height
-                while e + window_height < height:
-                    ss = slice(s-window_width, s+window_width)
-                    ee = slice(e-window_height, e+window_height)
-                    image_window = sti[ss,ee]
-                    angle, coherence = self._process_sti(image_window)
-                    angle_accumulated += (angle * coherence)
-                    c_total += coherence
-                    if self._debug:
-                        print((f'- at ({i}, {j}): angle = '
-                               f'- in ({s}, {e}): angle = '
-                               f'{math.degrees(angle):0.2f}, '
-                               f'coherence={coherence:0.2f}, '
-                               f'velocity={round(self._get_velocity(angle),2)}'))
-                    mask = self._draw_angle(mask, angle, (e, s))
-                    j+=1
-                    e += int(self._overlap)
-                i+=1
-                s += int(self._overlap)
-
-            mean_angle = angle_accumulated / c_total
-            print("weighted mean angle:", round(math.degrees(mean_angle), 2))
-
-            velocity = self._get_velocity(mean_angle)
-            print("velocity", round(velocity, 2))
+            sti = self._filter_sti(sti)
+            velocity, mask = self._calculate_MOT_using_GMT(sti)
+            # velocity, mask = self._calculate_MOT_using_FFT(sti)
             velocities.append(velocity)
 
-            # save and plot iamge
-            final_image = self._stis[idx] + mask
+            final_image = sti + mask
             np.save(f'stiv_final_{idx:02}.npy', final_image)
             cv2.imwrite(
                     f'stiv_final_{idx:02}.png',
-                    self._generate_final_image(self._stis[idx], mask),
+                    self._generate_final_image(sti, mask),
                     )
             if show_image:
                 cv2.imshow('stiv final', final_image)
