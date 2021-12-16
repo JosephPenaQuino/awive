@@ -44,7 +44,6 @@ class STIV():
 
         self._polar_filter_width = self._config['polar_filter_width']
 
-
     def _get_velocity(self, angle):
         '''
         Given STI pattern angle, calculate velocity
@@ -95,7 +94,6 @@ class STIV():
     def _apply_angle(self, mask, freq, isd):
         x = int(freq - self._polar_filter_width)
         y = int(freq + self._polar_filter_width)
-        print(x, y)
         if x < 0:
             x = 0
             mask[x + len(isd):, :] = 1
@@ -243,6 +241,26 @@ class STIV():
                 ).astype(np.uint8)
         return sti_filtered
 
+    def _generate_final_image(self, sti, mask):
+        new_sti = np.interp(
+                sti,
+                (sti.min(), sti.max()),
+                (0, 255)
+                ).astype(np.uint8)
+        new_sti = cv2.equalizeHist(sti)
+        new_sti = cv2.cvtColor(new_sti, cv2.COLOR_GRAY2RGB)
+        new_mask = np.interp(
+                mask,
+                (mask.min(), mask.max()),
+                (0, 255)
+                ).astype(np.uint8)
+
+        new_mask = cv2.cvtColor(new_mask, cv2.COLOR_GRAY2RGB)
+        # new_mask = cv2.applyColorMap(new_mask, cv2.COLORMAP_JET)
+        out = cv2.add(new_sti, new_mask)
+
+        return out
+
     def run(self, show_image=False):
         '''Execute'''
         window_width = int(self._config['window_shape'][0]/2)
@@ -295,6 +313,10 @@ class STIV():
             # save and plot iamge
             final_image = self._stis[idx] + mask
             np.save(f'stiv_final_{idx:02}.npy', final_image)
+            cv2.imwrite(
+                    f'stiv_final_{idx:02}.png',
+                    self._generate_final_image(self._stis[idx], mask),
+                    )
             if show_image:
                 cv2.imshow('stiv final', final_image)
                 cv2.waitKey(0)
