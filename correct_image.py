@@ -37,6 +37,11 @@ class Formatter:
         h_slice = slice(self._config['roi']['h1'],
                         self._config['roi']['h2'])
         self._slice = (w_slice, h_slice)
+        w_slice = slice(self._config['pre_roi']['w1'],
+                        self._config['pre_roi']['w2'])
+        h_slice = slice(self._config['pre_roi']['h1'],
+                        self._config['pre_roi']['h2'])
+        self._pre_slice = (w_slice, h_slice)
 
 
     def _get_orthorectification_params(self, sample_image: np.ndarray):
@@ -90,6 +95,12 @@ class Formatter:
                                   self._rotation_matrix,
                                   (self._shape[1], self._shape[0]))
         return image
+    def _pre_crop(self, image: np.ndarray) -> np.ndarray:
+        new_image =  image[self._pre_slice[0], self._pre_slice[1]]
+        self._shape = (new_image.shape[0], new_image.shape[1])
+        # TODO: this shouldn't be done here. Find a better way
+        self._rotation_matrix = self._get_rotation_matrix()
+        return new_image
 
     def _crop(self, image: np.ndarray) -> np.ndarray:
         new_image =  image[self._slice[0], self._slice[1]]
@@ -101,6 +112,7 @@ class Formatter:
     def apply_roi_extraction(self, image: np.ndarray, gray=True) -> np.ndarray:
         '''Apply image rotation, cropping and rgb2gray'''
         # it must be in this order in order to calibrate easier
+        image = self._pre_crop(image)
         image = self._rotate(image)
         image = self._crop(image)
         if gray:
