@@ -364,7 +364,7 @@ class OTV():
                 m = 0
             out_json[str(i)]['velocity'] = m
             out_json[str(i)]['count'] = len(t)
-        print(out_json)
+        print(json.dumps(out_json))
 
 
 def draw_vectors(image, new_list, old_list, masks):

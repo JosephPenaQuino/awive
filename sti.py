@@ -392,7 +392,7 @@ class STIV():
             out_json[str(i)] = {}
             out_json[str(i)]['velocity'] = vel
         if self._debug == 0:
-            print(out_json)
+            print(json.dumps(out_json))
         total /= len(velocities)
         if self._debug >= 1:
             print('Total mean velocity:', round(total, 2))
