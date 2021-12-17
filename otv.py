@@ -60,7 +60,8 @@ def compute_stats(velocity, hist=False):
 class OTV():
     '''Optical Tracking Image Velocimetry'''
     def __init__(self, config_path: str, video_identifier: str,
-            prev_gray: np.ndarray):
+            prev_gray: np.ndarray, debug=0):
+        self._debug = debug
         with open(config_path) as json_file:
             root_config = json.load(json_file)[video_identifier]
             config = root_config['otv']
@@ -76,14 +77,14 @@ class OTV():
         self._resolution = config['resolution']
         self._pixel_to_real = config['pixel_to_real']
 
-        width = root_config['roi']['w2'] - root_config['roi']['w1']
-        height = root_config['roi']['h2'] - root_config['roi']['h1']
+        self._width = root_config['roi']['w2'] - root_config['roi']['w1']
+        self._height = root_config['roi']['h2'] - root_config['roi']['h1']
         mask_path = config['mask_path']
         if len(mask_path) != 0:
             self._mask = cv2.imread(mask_path, 0) > 1
             self._mask = cv2.resize(
                 self._mask.astype(np.uint8),
-                (height, width),
+                (self._height, self._width),
                 cv2.INTER_NEAREST
                 )
         else:
@@ -137,7 +138,9 @@ class OTV():
 
     def _init_subregion_list(self, dimension, width):
         ret = []
+        print(width, self._resolution, self._step)
         n_regions = math.ceil(width*self._resolution / self._step)
+        print(n_regions)
         for _ in range(n_regions):
             # TODO: This is so inneficient
             if dimension == 1:
@@ -167,8 +170,15 @@ class OTV():
         distance = []
         path = []
 
-        subregion_velocity = self._init_subregion_list(2, loader.width)
-        subregion_trajectories = self._init_subregion_list(1, loader.width)
+        # update width and height if needed
+        if loader.image_shape[0] < self._width:
+            self._width = loader.image_shape[0]
+        if loader.image_shape[1] < self._height:
+            self._height = loader.image_shape[1]
+
+
+        subregion_velocity = self._init_subregion_list(2, self._height)
+        subregion_trajectories = self._init_subregion_list(1, self._height)
 
         # Initialization
         for i in range(loader.total_frames):
@@ -209,7 +219,8 @@ class OTV():
                         valid[loader.index].append(False)
                         velocity_mem[loader.index].append(0)
 
-            print('Analyzing frame:', loader.index)
+            if self._debug >= 1:
+                print('Analyzing frame:', loader.index)
             if previous_frame is not None:
                 pts1 = cv2.KeyPoint_convert(keypoints_current)
                 pts2, st, err = cv2.calcOpticalFlowPyrLK(
@@ -259,9 +270,11 @@ class OTV():
                                 keypoints_start[i],
                                 keypoints_current[i]
                                 )
-                            module_start = int(keypoints_start[i].pt[0] /
+
+                            # sub-region computation
+                            module_start = int(keypoints_start[i].pt[1] /
                                     self._step)
-                            module_current = int(keypoints_start[i].pt[0] /
+                            module_current = int(keypoints_current[i].pt[1] /
                                     self._step)
                             if module_start == module_current:
                                 subregion_velocity[module_start].append(velocity_i)
@@ -300,7 +313,8 @@ class OTV():
                 keypoints_predicted = keypoints_predicted[:k]
                 time = time[:k]
 
-            print('number of trajectories:', len(keypoints_current))
+            if self._debug >= 1:
+                print('number of trajectories:', len(keypoints_current))
 
             if show_video:
                 if previous_frame is not None:
@@ -327,11 +341,29 @@ class OTV():
         cv2.destroyAllWindows()
         avg, max_, min_, std_dev, count = compute_stats(velocity, show_video)
 
-        print('avg:', round(avg, 4))
-        print('max:', round(max_, 4))
-        print('min:', round(min_, 4))
-        print('std_dev:', round(std_dev, 2))
-        print('count:', count)
+        if self._debug >= 1:
+            print('avg:', round(avg, 4))
+            print('max:', round(max_, 4))
+            print('min:', round(min_, 4))
+            print('std_dev:', round(std_dev, 2))
+            print('count:', count)
+
+        ms  = []
+        for i, sv in enumerate(subregion_velocity):
+            t = np.array(sv)
+            t = t[t!=0]
+            if len(t) != 0:
+                m = t.mean()
+            else:
+                m = 0
+            print(f'velocities[{i}]:', m, len(t))
+            ms.append(m)
+        t = np.array(ms)
+        t = t[t!=0]
+        if len(t) == 0:
+            print(0)
+        else:
+            print(t.mean())
 
 
 def draw_vectors(image, new_list, old_list, masks):
@@ -369,7 +401,7 @@ def draw_vectors(image, new_list, old_list, masks):
 
 
 
-def main(config_path: str, video_identifier: str, show_video=True):
+def main(config_path: str, video_identifier: str, show_video=True, debug=0):
     '''Basic example of OTV'''
     loader = get_loader(config_path, video_identifier)
     formatter = Formatter(config_path, video_identifier)
@@ -377,7 +409,7 @@ def main(config_path: str, video_identifier: str, show_video=True):
     image = loader.read()
     prev_gray = formatter.apply_distortion_correction(image)
     prev_gray = formatter.apply_roi_extraction(prev_gray)
-    otv = OTV(config_path, video_identifier, prev_gray)
+    otv = OTV(config_path, video_identifier, prev_gray, debug)
     otv.run(loader, formatter, show_video)
 
 if __name__ == "__main__":
@@ -395,6 +427,12 @@ if __name__ == "__main__":
         type=str,
         default=FOLDER_PATH)
     parser.add_argument(
+        '-d',
+        '--debug',
+        help='Activate debug mode',
+        type=int,
+        default=0)
+    parser.add_argument(
         '-v',
         '--video',
         action='store_true',
@@ -403,5 +441,6 @@ if __name__ == "__main__":
     CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
     main(config_path=CONFIG_PATH,
          video_identifier=args.video_identifier,
-         show_video=args.video
+         show_video=args.video,
+         debug=args.debug
          )
