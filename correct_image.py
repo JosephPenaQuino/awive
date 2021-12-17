@@ -100,6 +100,8 @@ class Formatter:
 
     @staticmethod
     def _gray(image: np.ndarray) -> np.ndarray:
+        if len(image.shape) == 2:
+            return image
         return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     def show_entire_image(self):
