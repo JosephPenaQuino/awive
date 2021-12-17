@@ -15,7 +15,7 @@ FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 class STIV():
     '''Space Time Image Velocimetry'''
-    def __init__(self, config_path: str, video_identifier: str, debug=False):
+    def __init__(self, config_path: str, video_identifier: str, debug=0):
         with open(config_path) as json_file:
             root_config = json.load(json_file)[video_identifier]
             self._config = root_config['stiv']
@@ -30,8 +30,9 @@ class STIV():
         self._overlap = self._config['overlap']
 
         self._ppm = root_config['PPM']
-        print('frames per second:', self._fps)
-        print('pixels per meter', self._ppm)
+        if self._debug >= 1:
+            print('frames per second:', self._fps)
+            print('pixels per meter', self._ppm)
 
         # create filter window
         w_size = self._config['filter_window']
@@ -55,7 +56,8 @@ class STIV():
     def _generate_st_images(self, config_path, video_identifier):
         # generate space time images
         loader = get_loader(config_path, video_identifier)
-        print('number of frames:', loader.total_frames)
+        if self._debug >= 1:
+            print('number of frames:', loader.total_frames)
         formatter = Formatter(config_path, video_identifier)
         self._fps = loader.fps
 
@@ -74,7 +76,6 @@ class STIV():
                 start = coordinates['start']
                 end = coordinates['end']
                 row = image[start[0], start[1]:end[1]]
-                # print(row)
                 self._stis[i].append(row)
 
         for i in range(self._stis_qnt):
@@ -124,7 +125,8 @@ class STIV():
         sobelx = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=self._ksize)
         sobelt = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=self._ksize)
         if sobelx.sum() == 0 and sobelt.sum() == 0:
-            print("WARNING: gradients are zero")
+            if self._debug >=  1:
+                print("WARNING: gradients are zero")
             return 0, 0
 
         Jxx = (sobelx * sobelx).sum()
@@ -203,7 +205,8 @@ class STIV():
             sti = sti[:,:x]
         else:
             sti = sti[:x,:]
-        print('size before reshape:', x)
+        if self._debug >= 1:
+            print('size before reshape:', x)
         # the example of the paper uses 600x600, so do I
         sti = cv2.resize(sti, (600, 600), interpolation=cv2.INTER_LINEAR)
         np.save('f0.npy', sti)
@@ -295,9 +298,10 @@ class STIV():
         angle0 = 2*math.pi *freq / sti_ft_polar.shape[0]
         angle1 = 2*math.pi *freq / sti_ft_polar.shape[1]
         angle = (angle0 + angle1)/2
-        print("angle:", round(angle, 2))
         velocity = self._get_velocity(angle)
-        print("velocity:", round(velocity, 2))
+        if self._debug >= 1:
+            print("angle:", round(angle, 2))
+            print("velocity:", round(velocity, 2))
         mask = np.zeros(sti.shape)
         mask = self._draw_angle(
                 mask,
@@ -338,7 +342,7 @@ class STIV():
                 angle, coherence = self._process_sti(image_window)
                 angle_accumulated += (angle * coherence)
                 c_total += coherence
-                if self._debug:
+                if self._debug >= 2:
                     print((f'- at ({i}, {j}): angle = '
                            f'- in ({s}, {e}): angle = '
                            f'{math.degrees(angle):0.2f}, '
@@ -351,10 +355,11 @@ class STIV():
             s += int(self._overlap)
 
         mean_angle = angle_accumulated / c_total
-        print("weighted mean angle:", round(math.degrees(mean_angle), 2))
 
         velocity = self._get_velocity(mean_angle)
-        print("velocity", round(velocity, 2))
+        if self._debug  >= 1:
+            print("weighted mean angle:", round(math.degrees(mean_angle), 2))
+            print("velocity", round(velocity, 2))
 
         return velocity, mask
 
@@ -362,7 +367,8 @@ class STIV():
         '''Execute'''
         velocities = []
         for idx, sti in enumerate(self._stis):
-            print(f'space time image {idx} shape: {sti.shape}')
+            if self._debug >= 1:
+                print(f'space time image {idx} shape: {sti.shape}')
             sti = self._filter_sti(sti)
             # velocity, mask = self._calculate_MOT_using_GMT(sti)
             velocity, mask = self._calculate_MOT_using_FFT(sti)
@@ -380,10 +386,16 @@ class STIV():
                 cv2.destroyAllWindows()
 
         total = 0
-        for vel in velocities:
+        out_json = {}
+        for i, vel in enumerate(velocities):
             total += vel
+            out_json[str(i)] = {}
+            out_json[str(i)]['velocity'] = vel
+        print(out_json)
         total /= len(velocities)
-        print('Total mean velocity:', round(total, 2))
+        if self._debug >= 1:
+            print('Total mean velocity:', round(total, 2))
+
 
 
 
@@ -410,8 +422,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-d',
         '--debug',
-        action='store_true',
-        help='Activate debug mode')
+        help='Activate debug mode',
+        type=int,
+        default=0)
     parser.add_argument(
         '-i',
         '--image',
