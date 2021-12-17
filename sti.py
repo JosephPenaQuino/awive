@@ -50,7 +50,7 @@ class STIV():
         - angle in radians
         '''
         velocity = math.tan(angle) * self._fps / self._ppm
-        return abs(velocity)
+        return velocity
 
     def _generate_st_images(self, config_path, video_identifier):
         # generate space time images
@@ -203,7 +203,7 @@ class STIV():
             sti = sti[:,:x]
         else:
             sti = sti[:x,:]
-        print(x)
+        print('size before reshape:', x)
         # the example of the paper uses 600x600, so do I
         sti = cv2.resize(sti, (600, 600), interpolation=cv2.INTER_LINEAR)
         np.save('f0.npy', sti)
