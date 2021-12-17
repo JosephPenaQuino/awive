@@ -28,7 +28,10 @@ class Formatter:
 
         sample_image = self._get_sample_image(config_path, video_identifier)
         self._shape = (sample_image.shape[0], sample_image.shape[1])
-        self._or_params = self._get_orthorectification_params(sample_image)
+        if self._config['gcp']['apply']:
+            self._or_params = self._get_orthorectification_params(sample_image)
+        else:
+            self._or_params = None
 
         self._rotation_angle = self._config['rotate_image']
         self._rotation_matrix = self._get_rotation_matrix()
