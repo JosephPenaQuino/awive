@@ -80,6 +80,7 @@ class OTV():
         self._width = root_config['roi']['w2'] - root_config['roi']['w1']
         self._height = root_config['roi']['h2'] - root_config['roi']['h1']
         mask_path = config['mask_path']
+        self._regions = config['lines']
         if len(mask_path) != 0:
             self._mask = cv2.imread(mask_path, 0) > 1
             self._mask = cv2.resize(
@@ -178,6 +179,8 @@ class OTV():
 
         subregion_velocity = self._init_subregion_list(2, self._width)
         subregion_trajectories = self._init_subregion_list(1, self._width)
+
+        regions = list([] for _ in range(len(self._regions)))
 
         # Initialization
         for i in range(loader.total_frames):
@@ -282,6 +285,10 @@ class OTV():
                             subregion_velocity[module_start].append(velocity_i)
                             subregion_trajectories[module_start] += 1
 
+                            for r_idx, region in enumerate(self._regions):
+                                if abs(xx0 - region) < 30:
+                                    regions[r_idx].append(velocity_i)
+
                             # update storage
                             pos = i
                             j = loader.index - 1
@@ -353,7 +360,7 @@ class OTV():
             print('count:', count)
 
         out_json = {}
-        for i, sv in enumerate(subregion_velocity):
+        for i, sv in enumerate(regions):
             out_json[str(i)] = {}
             t = np.array(sv)
             t = t[t!=0]
