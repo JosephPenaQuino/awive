@@ -138,9 +138,7 @@ class OTV():
 
     def _init_subregion_list(self, dimension, width):
         ret = []
-        print(width, self._resolution, self._step)
-        n_regions = math.ceil(width*self._resolution / self._step)
-        print(n_regions)
+        n_regions = math.ceil(width / self._step)
         for _ in range(n_regions):
             # TODO: This is so inneficient
             if dimension == 1:
@@ -169,6 +167,7 @@ class OTV():
         angle = []
         distance = []
         path = []
+        traj_map = np.zeros((1200, 900))
 
         # update width and height if needed
         if loader.image_shape[0] < self._width:
@@ -177,8 +176,8 @@ class OTV():
             self._height = loader.image_shape[1]
 
 
-        subregion_velocity = self._init_subregion_list(2, self._height)
-        subregion_trajectories = self._init_subregion_list(1, self._height)
+        subregion_velocity = self._init_subregion_list(2, self._width)
+        subregion_trajectories = self._init_subregion_list(1, self._width)
 
         # Initialization
         for i in range(loader.total_frames):
@@ -194,7 +193,7 @@ class OTV():
             current_frame = loader.read()
             current_frame = formatter.apply_distortion_correction(current_frame)
             current_frame = formatter.apply_roi_extraction(current_frame)
-            current_frame = self._apply_mask(current_frame)
+            # current_frame = self._apply_mask(current_frame)
 
             # get features as a list of KeyPoints
             keypoints = detector.detect(current_frame, None)
@@ -271,14 +270,17 @@ class OTV():
                                 keypoints_current[i]
                                 )
 
+                            xx0 = int(keypoints_start[i].pt[1])
+                            yy0 = int(keypoints_start[i].pt[0])
+                            traj_map[xx0][yy0] += 100
                             # sub-region computation
                             module_start = int(keypoints_start[i].pt[1] /
                                     self._step)
                             module_current = int(keypoints_current[i].pt[1] /
                                     self._step)
-                            if module_start == module_current:
-                                subregion_velocity[module_start].append(velocity_i)
-                                subregion_trajectories[module_start] += 1
+                            # if module_start == module_current:
+                            subregion_velocity[module_start].append(velocity_i)
+                            subregion_trajectories[module_start] += 1
 
                             # update storage
                             pos = i
@@ -313,6 +315,7 @@ class OTV():
                 keypoints_predicted = keypoints_predicted[:k]
                 time = time[:k]
 
+
             if self._debug >= 1:
                 print('number of trajectories:', len(keypoints_current))
 
@@ -336,6 +339,7 @@ class OTV():
             # the keypoints_predicted will be cleaned
             if len(keypoints_predicted) != 0:
                 keypoints_predicted, keypoints_current = keypoints_current, keypoints_predicted
+        np.save('traj.npy', traj_map)
 
         loader.end()
         cv2.destroyAllWindows()
@@ -348,22 +352,19 @@ class OTV():
             print('std_dev:', round(std_dev, 2))
             print('count:', count)
 
-        ms  = []
+        out_json = {}
         for i, sv in enumerate(subregion_velocity):
+            out_json[str(i)] = {}
             t = np.array(sv)
             t = t[t!=0]
             if len(t) != 0:
+                t = reject_outliers(t)
                 m = t.mean()
             else:
                 m = 0
-            print(f'velocities[{i}]:', m, len(t))
-            ms.append(m)
-        t = np.array(ms)
-        t = t[t!=0]
-        if len(t) == 0:
-            print(0)
-        else:
-            print(t.mean())
+            out_json[str(i)]['velocity'] = m
+            out_json[str(i)]['count'] = len(t)
+        print(out_json)
 
 
 def draw_vectors(image, new_list, old_list, masks):
