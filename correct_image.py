@@ -1,3 +1,4 @@
+#!/home/joseph/anaconda3/envs/imageProcessing/bin/python3
 '''Correct distortion of videos
 
 This module contains classes and functions needed to correct distortion of
@@ -29,7 +30,7 @@ class Formatter:
         self._shape = (sample_image.shape[0], sample_image.shape[1])
         self._or_params = self._get_orthorectification_params(sample_image)
 
-        self._grades = self._config['rotate_image']
+        self._rotation_angle = self._config['rotate_image']
         self._rotation_matrix = self._get_rotation_matrix()
 
         w_slice = slice(self._config['roi']['w1'],
@@ -66,11 +67,29 @@ class Formatter:
         return (M, C)
 
     def _get_rotation_matrix(self):
+        '''
+        based on:
+        https://stackoverflow.com/questions/43892506/opencv-python-rotate-image-without-cropping-sides
+        '''
         a = 1.0   # TODO: idk why is 1.0
-        return cv2.getRotationMatrix2D(
-            (self._shape[0]//2, self._shape[1]//2),
-            self._grades,
+        height, width = self._shape
+        image_center = (width/2, height/2)
+        # getRotationMatrix2D needs coordinates in reverse order (width, height) compared to shape
+        rot_mat= cv2.getRotationMatrix2D(
+            image_center,
+            self._rotation_angle,
             a)
+        # rotation calculates the cos and sin, taking absolutes of those.
+        abs_cos = abs(rot_mat[0,0])
+        abs_sin = abs(rot_mat[0,1])
+        # find the new width and height bounds
+        bound_w = int(height * abs_sin + width * abs_cos)
+        bound_h = int(height * abs_cos + width * abs_sin)
+        # subtract old image center (bringing image back to origo) and adding the new image center coordinates
+        rot_mat[0, 2] += bound_w/2 - image_center[0]
+        rot_mat[1, 2] += bound_h/2 - image_center[1]
+        self._bound = (bound_w, bound_h)
+        return rot_mat
 
     @staticmethod
     def _get_sample_image(config_path: str, vid_identifier: str) -> np.ndarray:
@@ -90,10 +109,14 @@ class Formatter:
         self._slice = (w_slice, h_slice)
 
     def _rotate(self, image: np.ndarray) -> np.ndarray:
-        if self._grades != 0:
-            return cv2.warpAffine(image,
-                                  self._rotation_matrix,
-                                  (self._shape[1], self._shape[0]))
+        if self._rotation_angle != 0:
+            # rotate image with the new bounds and translated rotation matrix
+            rotated_mat = cv2.warpAffine(
+                image,
+                self._rotation_matrix,
+                self._bound
+                )
+            return rotated_mat
         return image
     def _pre_crop(self, image: np.ndarray) -> np.ndarray:
         new_image =  image[self._pre_slice[0], self._pre_slice[1]]
