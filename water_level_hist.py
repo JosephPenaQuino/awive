@@ -8,6 +8,7 @@ by:
 - Hahn, H.
 '''
 
+import os
 import json
 import argparse
 import numpy as np
@@ -36,7 +37,7 @@ class WaterlevelDetector:
         ksize = config['kernel_size']
         self._kernel = np.ones((ksize, ksize),np.uint8)
 
-    def _get_difference_accumulation(self):
+    def _get_difference_accumulation(self, plot):
         cnt = 0
         buffer = []
         accumulated_image = np.zeros(self._roi_shape)
@@ -46,6 +47,7 @@ class WaterlevelDetector:
         np.save('im_ref.npy', ref_image)
         image = image[self._r0, self._r1]
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        np.save('acc0.npy', image)
 
         for i in range(self._buffer_length):
             if not self._loader.has_images():
@@ -56,21 +58,10 @@ class WaterlevelDetector:
 
             accumulated_image += (new_image - image) ** 2
             image = new_image
-            # buffer.append(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
-            # cnt +=1
 
-        # for image in buffer[:-1]:
-            # new_difference = abs(buffer[-1] - image)
-            # np.save('i0.npy', buffer[-1])
-            # np.save('i1.npy', image)
-            # np.save('i2.npy', new_difference)
-            # accumulated_image += new_difference
-        # accumulated_image = np.interp(
-            #     accumulated_image,
-            #     (accumulated_image.min(), accumulated_image.max()),
-            #     (0, 255)
-            #     ).astype(np.uint8)
         np.save('acc.npy', accumulated_image)
+        if plot:
+            os.system("plotNpy acc.npy acc0.npy im_ref.npy")
         print('average:', round(accumulated_image.mean(), 2))
 
         return accumulated_image
@@ -108,9 +99,9 @@ class WaterlevelDetector:
         np.save('out2.npy', image)
         return height
 
-    def get_water_level(self):
+    def get_water_level(self, plot):
         '''calculate and return water level'''
-        accumulated_image = self._get_difference_accumulation()
+        accumulated_image = self._get_difference_accumulation(plot)
         np.save('out0.npy', accumulated_image)
         # threshold, _ = self._get_threshold(accumulated_image)
         # height = self._compute_water_level(accumulated_image, threshold)
@@ -119,10 +110,10 @@ class WaterlevelDetector:
         # return height
 
 
-def main(config_path: str, video_identifier: str, show_image=True):
+def main(config_path: str, video_identifier: str, show_image=True, plot=True):
     '''Execute basic example of water level detector'''
     water_level_detector = WaterlevelDetector(config_path, video_identifier)
-    water_level = water_level_detector.get_water_level()
+    water_level = water_level_detector.get_water_level(plot)
     # print('water level:', water_level)
 
 
@@ -140,8 +131,14 @@ if __name__ == '__main__':
         help='Path to the config folder',
         type=str,
         default=FOLDER_PATH)
+    parser.add_argument(
+        '-P',
+        '--plot',
+        action='store_true',
+        help='Plot output image')
     args = parser.parse_args()
     CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
     main(config_path=CONFIG_PATH,
          video_identifier=args.video_identifier,
+         plot=args.plot,
          )
