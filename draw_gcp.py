@@ -10,14 +10,14 @@ from correct_image import Formatter
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 TEXT_FACE = cv2.FONT_HERSHEY_DUPLEX
-TEXT_SCALE = 1.5
+TEXT_SCALE = 0.5
 TEXT_THICKNESS = 2
 
 
 def draw_circle(img, center, number):
     '''draw a circle with a number'''
     text = str(number)
-    cv2.circle(img, center, 30, 255, -1)
+    cv2.circle(img, center, 10, 255, -1)
 
     text_size, _ = cv2.getTextSize(text, TEXT_FACE, TEXT_SCALE, TEXT_THICKNESS)
     text_origin = (int(center[0] - text_size[0] / 2), int(center[1] + text_size[1] / 2))
@@ -35,7 +35,8 @@ def main(config_path: str, video_identifier: str, plot=False, undistort=False,
 
     pixels = config['pixels']
 
-    for i in range(4):
+    le = len(pixels['x'])
+    for i in range(le):
         draw_circle(img, (pixels['x'][i], pixels['y'][i]), i+1)
 
     if undistort:
