@@ -47,7 +47,7 @@ def compute_stats(velocity, hist=False):
 
     if hist:
         import matplotlib.pyplot as plt
-        plt.hist(v.astype(int), density=True, bins=100)
+        plt.hist(v.astype(int))
         plt.ylabel('Probability')
         plt.xlabel('Data');
         plt.show()
@@ -277,13 +277,13 @@ class OTV():
                             yy0 = int(keypoints_start[i].pt[0])
                             traj_map[xx0][yy0] += 100
                             # sub-region computation
-                            module_start = int(keypoints_start[i].pt[1] /
-                                    self._step)
-                            module_current = int(keypoints_current[i].pt[1] /
-                                    self._step)
+                            # module_start = int(keypoints_start[i].pt[1] /
+                            #         self._step)
+                            # module_current = int(keypoints_current[i].pt[1] /
+                            #         self._step)
                             # if module_start == module_current:
-                            subregion_velocity[module_start].append(velocity_i)
-                            subregion_trajectories[module_start] += 1
+                            # subregion_velocity[module_start].append(velocity_i)
+                            # subregion_trajectories[module_start] += 1
 
                             for r_idx, region in enumerate(self._regions):
                                 if abs(xx0 - region) < 30:
@@ -371,7 +371,7 @@ class OTV():
                 m = 0
             out_json[str(i)]['velocity'] = m
             out_json[str(i)]['count'] = len(t)
-        print(json.dumps(out_json))
+        return out_json
 
 
 def draw_vectors(image, new_list, old_list, masks):
@@ -409,7 +409,7 @@ def draw_vectors(image, new_list, old_list, masks):
 
 
 
-def main(config_path: str, video_identifier: str, show_video=True, debug=0):
+def main(config_path: str, video_identifier: str, show_video=False, debug=0):
     '''Basic example of OTV'''
     loader = get_loader(config_path, video_identifier)
     formatter = Formatter(config_path, video_identifier)
@@ -418,7 +418,7 @@ def main(config_path: str, video_identifier: str, show_video=True, debug=0):
     prev_gray = formatter.apply_distortion_correction(image)
     prev_gray = formatter.apply_roi_extraction(prev_gray)
     otv = OTV(config_path, video_identifier, prev_gray, debug)
-    otv.run(loader, formatter, show_video)
+    return otv.run(loader, formatter, show_video)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -447,8 +447,8 @@ if __name__ == "__main__":
         help='Play video while processing')
     args = parser.parse_args()
     CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
-    main(config_path=CONFIG_PATH,
+    print(main(config_path=CONFIG_PATH,
          video_identifier=args.video_identifier,
          show_video=args.video,
          debug=args.debug
-         )
+         ))

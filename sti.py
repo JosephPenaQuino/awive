@@ -391,19 +391,18 @@ class STIV():
             total += vel
             out_json[str(i)] = {}
             out_json[str(i)]['velocity'] = vel
-        if self._debug == 0:
-            print(json.dumps(out_json))
+        # if self._debug == 0:
+        #     print(json.dumps(out_json))
         total /= len(velocities)
         if self._debug >= 1:
             print('Total mean velocity:', round(total, 2))
+        return out_json
 
 
-
-
-def main(config_path: str, video_identifier: str, show_image=True, debug=False):
+def main(config_path: str, video_identifier: str, show_image=False, debug=0):
     '''Basic example of STIV usage'''
     stiv = STIV(config_path, video_identifier, debug)
-    stiv.run(show_image)
+    return stiv.run(show_image)
 
 
 if __name__ == '__main__':
@@ -433,8 +432,8 @@ if __name__ == '__main__':
         help='Show every space time image')
     args = parser.parse_args()
     CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
-    main(config_path=CONFIG_PATH,
+    print(main(config_path=CONFIG_PATH,
          video_identifier=args.video_identifier,
          show_image=args.image,
          debug=args.debug
-         )
+         ))

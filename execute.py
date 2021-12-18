@@ -4,28 +4,32 @@ import os
 import argparse
 import json
 import time
+import sti
+import otv
 
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
-STEPS = 5
 
-def execute_method(method_name, station_name, video_identifier, folder_path):
-    cmd = f'./{method_name}.py {station_name} {video_identifier} -p {folder_path}'
+def execute_method(method_name, station_name, video_identifier, config_path):
     t = time.process_time()
-    ret = os.popen(cmd).read()
-    elapsed_time = 1000 * (time.process_time() - t)
-    ret = json.loads(ret)
-    print(method_name, end='\t')
-    for i in range(STEPS):
-        print(ret[str(i)]['velocity'], end='\t')
+    if method_name == 'sti':
+        ret = sti.main(config_path, video_identifier)
+    elif method_name == 'otv':
+        ret = otv.main(config_path, video_identifier)
+    else:
+        ret = None
+    elapsed_time = (time.process_time() - t)
+    print(method_name)
+    for i in range(len(ret)):
+        print(ret[str(i)]['velocity'])
     print(elapsed_time)
 
 
-def main(station_name, video_identifier, folder_path):
+def main(station_name, video_identifier, config_path):
     '''execute both methods'''
-    execute_method('sti', station_name, video_identifier, folder_path)
-    execute_method('otv', station_name, video_identifier, folder_path)
-    
+    execute_method('sti', station_name, video_identifier, config_path)
+    # execute_method('otv', station_name, video_identifier, config_path)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -42,8 +46,9 @@ if __name__ == "__main__":
         type=str,
         default=FOLDER_PATH)
     args = parser.parse_args()
+    CONFIG_PATH = f'{args.path}/{args.station_name}.json'
     main(
         station_name=args.station_name,
         video_identifier=args.video_identifier,
-        folder_path=args.path,
+        config_path=CONFIG_PATH
         )
