@@ -13,6 +13,7 @@ import numpy as np
 import cv2
 from loader import get_loader
 import imageprep as ip
+import time
 
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
@@ -182,11 +183,25 @@ class Formatter:
 
 def main(config_path: str, video_identifier: str, save_image: bool):
     '''Demonstrate basic example of video correction'''
+    t0 = time.process_time()
     loader = get_loader(config_path, video_identifier)
+    t1 = time.process_time()
     formatter = Formatter(config_path, video_identifier)
+    t2 = time.process_time()
     image = loader.read()
+    t3 = time.process_time()
     image = formatter.apply_distortion_correction(image)
+    t4 = time.process_time()
     image = formatter.apply_roi_extraction(image)
+    t5 = time.process_time()
+    loader.end()
+    t6 = time.process_time()
+    print('- get_loader:', t1 - t0)
+    print('- Formatter:', t2 - t1)
+    print('- loader.read:', t3 - t2)
+    print('- formatter.apply_distortion_correction:', t4 - t3)
+    print('- formatter.apply_roi_extraction:', t5 - t4)
+    print('- loader.end:', t6 - t5)
 
     if save_image:
         cv2.imwrite('tmp.jpg', image)
@@ -194,7 +209,6 @@ def main(config_path: str, video_identifier: str, save_image: bool):
         cv2.imshow('image', cv2.resize(image, (1000, 1000)))
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-    loader.end()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
