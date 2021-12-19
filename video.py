@@ -14,7 +14,8 @@ FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 RESIZE_RATIO = 5
 
 
-def play(loader: Loader, formatter: Formatter, undistort=True, roi=True, time_delay=1, resize=False, wlcrop=None):
+def play(loader: Loader, formatter: Formatter, undistort=True, roi=True,
+        time_delay=1, resize=False, wlcrop=None, blur=True):
     '''Plays a video'''
     i =0
 
@@ -26,6 +27,8 @@ def play(loader: Loader, formatter: Formatter, undistort=True, roi=True, time_de
             image = formatter.apply_roi_extraction(image)
         elif wlcrop is not None:
             image = image[wlcrop[0], wlcrop[1]]
+        if blur:
+            image = cv2.medianBlur(image, 5)
         if resize:
             lil_im = cv2.resize(image, (1000, 1000))
         else:
@@ -39,7 +42,7 @@ def play(loader: Loader, formatter: Formatter, undistort=True, roi=True, time_de
     cv2.destroyAllWindows()
 
 
-def main(config_path: str, video_identifier: str, undistort=True, roi=True, time_delay=1, resize=True, wlcrop=True):
+def main(config_path: str, video_identifier: str, undistort=True, roi=True, time_delay=1, resize=True, wlcrop=True, blur=True):
     '''Read configurations and play video'''
     loader = get_loader(config_path, video_identifier)
     formatter = Formatter(config_path, video_identifier)
@@ -52,7 +55,7 @@ def main(config_path: str, video_identifier: str, undistort=True, roi=True, time
         crop = (wr0, wr1)
     else:
         crop = None
-    play(loader, formatter, undistort, roi, time_delay, resize, crop)
+    play(loader, formatter, undistort, roi, time_delay, resize, crop, blur)
 
 
 if __name__ == "__main__":
@@ -79,6 +82,11 @@ if __name__ == "__main__":
         action='store_true',
         help='Water level crop')
     parser.add_argument(
+        '-b',
+        '--blur',
+        action='store_true',
+        help='Blur image')
+    parser.add_argument(
         '-z',
         '--resize',
         action='store_true',
@@ -97,5 +105,6 @@ if __name__ == "__main__":
          roi=args.roi,
          time_delay=args.time,
          resize=args.resize,
-         wlcrop=args.wlcrop
+         wlcrop=args.wlcrop,
+         blur=args.blur,
          )
