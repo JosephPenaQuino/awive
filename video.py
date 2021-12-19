@@ -1,6 +1,7 @@
 #!/home/joseph/anaconda3/envs/imageProcessing/bin/python3
 '''Play  a video'''
 import argparse
+import numpy as np
 import json
 
 import cv2
@@ -15,6 +16,7 @@ RESIZE_RATIO = 5
 
 def play(loader: Loader, formatter: Formatter, undistort=True, roi=True, time_delay=1, resize=False, wlcrop=None):
     '''Plays a video'''
+    i =0
 
     while loader.has_images():
         image = loader.read()
@@ -29,9 +31,11 @@ def play(loader: Loader, formatter: Formatter, undistort=True, roi=True, time_de
         else:
             lil_im = image
         cv2.imshow('Video', lil_im)
+        np.save(f'images/im_{i:04}.npy',lil_im)
         if cv2.waitKey(time_delay) & 0xFF == ord('q'):
             print ('Finished by key \'q\'')
             break
+        i += 1
     cv2.destroyAllWindows()
 
 
