@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 from correct_image import Formatter
 from loader import get_loader
+import time
 
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
@@ -26,7 +27,9 @@ class STIV():
         self._stis = []
         self._stis_qnt = len(self._config['lines'])
         self._ksize = self._config['ksize']
+        t0 = time.process_time()
         self._generate_st_images(config_path, video_identifier)
+        t1 = time.process_time()
         self._overlap = self._config['overlap']
 
         self._ppm = root_config['PPM']
@@ -44,6 +47,7 @@ class STIV():
         self._vh_filter = 1
 
         self._polar_filter_width = self._config['polar_filter_width']
+        print('- generate_st_images\t', t1 - t0)
 
     def _get_velocity(self, angle):
         '''
@@ -401,8 +405,15 @@ class STIV():
 
 def main(config_path: str, video_identifier: str, show_image=False, debug=0):
     '''Basic example of STIV usage'''
+    t0 = time.process_time()
     stiv = STIV(config_path, video_identifier, debug)
-    return stiv.run(show_image)
+    t1 = time.process_time()
+    ret = stiv.run(show_image)
+    t2 = time.process_time()
+
+    print('- STIV\t', t1 - t0)
+    print('- stiv.run\t', t2 - t1)
+    return ret
 
 
 if __name__ == '__main__':
