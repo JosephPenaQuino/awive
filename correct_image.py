@@ -49,9 +49,14 @@ class Formatter:
         self._pre_slice = (w_slice, h_slice)
 
 
-    def _get_orthorectification_params(self, sample_image: np.ndarray):
+    def _get_orthorectification_params(self, sample_image: np.ndarray, reduce=None):
         x = self._config['gcp']['pixels']
         df_from = list(map(list, zip(*[(v) for k, v in x.items()])))
+        if reduce is not None:
+            for i, _ in enumerate(df_from):
+                df_from[i][0] = df_from[i][0]-reduce[0]
+                df_from[i][1] = df_from[i][1]-reduce[1]
+
         x = self._config['gcp']['meters']
         df_to = list(map(list, zip(*[(v) for k, v in x.items()])))
         if self._config['image_correction']['apply']:
@@ -157,6 +162,18 @@ class Formatter:
         #     gamma=self.enhance_gamma)
         return image
 
+    def _crop_using_refs(self, image: np.ndarray) -> np.ndarray:
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        xs = self._config['gcp']['pixels']['y']
+        ys = self._config['gcp']['pixels']['x']
+        xslice = slice(min(xs), max(xs)+1)
+        yslice = slice(min(ys), max(ys)+1)
+        image = image[xslice, yslice]
+        self._shape = (image.shape[0], image.shape[1])
+        self._or_params = self._get_orthorectification_params(image, reduce=(min(ys), min(xs)))
+        self._rotation_matrix = self._get_rotation_matrix()
+        return image
+
     def apply_distortion_correction(self, image: np.ndarray) ->np.ndarray:
         '''Given GCP, undistort image'''
         if not self._config['gcp']['apply']:
@@ -172,11 +189,13 @@ class Formatter:
                     )
 
         # apply orthorectification
+        image = self._crop_using_refs(image)
         image = ip.orthorect_trans(image,
                                    self._or_params[0],
                                    self._or_params[1])
         self._shape = (image.shape[0], image.shape[1])
         # update rotation matrix such as the shape of the image changed
+        self._rotation_matrix = self._get_rotation_matrix()
         self._rotation_matrix = self._get_rotation_matrix()
         return image
 
