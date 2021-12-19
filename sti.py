@@ -272,7 +272,6 @@ class STIV():
                 ).astype(np.uint8)
 
         new_mask = cv2.cvtColor(new_mask, cv2.COLOR_GRAY2RGB)
-        # new_mask = cv2.applyColorMap(new_mask, cv2.COLORMAP_JET)
         out = cv2.add(new_sti, new_mask)
 
         return out
@@ -395,8 +394,6 @@ class STIV():
             total += vel
             out_json[str(i)] = {}
             out_json[str(i)]['velocity'] = vel
-        # if self._debug == 0:
-        #     print(json.dumps(out_json))
         total /= len(velocities)
         if self._debug >= 1:
             print('Total mean velocity:', round(total, 2))
