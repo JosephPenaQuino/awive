@@ -64,9 +64,10 @@ class WaterlevelDetector:
         np.save('acc.npy', accumulated_image)
         if plot:
             os.system("plotNpy acc.npy acc0.npy im_ref.npy")
-        print('average:', round(accumulated_image.mean(), 2))
+        d = accumulated_image.mean()
+        print('average:', round(d, 2))
 
-        return accumulated_image
+        return d
 
     @staticmethod
     def _get_threshold(image):
@@ -103,19 +104,19 @@ class WaterlevelDetector:
 
     def get_water_level(self, plot):
         '''calculate and return water level'''
-        accumulated_image = self._get_difference_accumulation(plot)
-        np.save('out0.npy', accumulated_image)
+        return self._get_difference_accumulation(plot)
+        # np.save('out0.npy', accumulated_image)
         # threshold, _ = self._get_threshold(accumulated_image)
         # height = self._compute_water_level(accumulated_image, threshold)
-        return 0
 
         # return height
 
 
-def main(config_path: str, video_identifier: str, show_image=True, plot=True):
+def main(config_path: str, video_identifier: str, show_image=False, plot=False):
     '''Execute basic example of water level detector'''
     water_level_detector = WaterlevelDetector(config_path, video_identifier)
-    water_level = water_level_detector.get_water_level(plot)
+    idpp = water_level_detector.get_water_level(plot)
+    return idpp
     # print('water level:', water_level)
 
 
