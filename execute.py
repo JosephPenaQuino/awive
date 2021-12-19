@@ -28,7 +28,7 @@ def execute_method(method_name, station_name, video_identifier, config_path):
 def main(station_name, video_identifier, config_path):
     '''execute both methods'''
     execute_method('sti', station_name, video_identifier, config_path)
-    execute_method('otv', station_name, video_identifier, config_path)
+    # execute_method('otv', station_name, video_identifier, config_path)
 
 
 if __name__ == "__main__":

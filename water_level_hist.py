@@ -48,6 +48,7 @@ class WaterlevelDetector:
         image = image[self._r0, self._r1]
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         np.save('acc0.npy', image)
+        image = cv2.medianBlur(image, 5)
 
         for i in range(self._buffer_length):
             if not self._loader.has_images():
@@ -55,6 +56,7 @@ class WaterlevelDetector:
                 return None
             new_image = self._loader.read()[self._r0, self._r1]
             new_image = cv2.cvtColor(new_image, cv2.COLOR_BGR2GRAY)
+            new_image = cv2.medianBlur(new_image, 5)
 
             accumulated_image += (new_image - image) ** 2
             image = new_image
