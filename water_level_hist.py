@@ -65,7 +65,7 @@ class WaterlevelDetector:
         if plot:
             os.system("plotNpy acc.npy acc0.npy im_ref.npy")
         d = accumulated_image.mean()
-        print('average:', round(d, 2))
+        print('idpp:', round(d, 2))
 
         return d
 
