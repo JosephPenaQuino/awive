@@ -64,7 +64,7 @@ if __name__ == "__main__":
         action='store_true',
         help='Format image using selecting only roi area')
     parser.add_argument(
-        '-p',
+        '-P',
         '--plot',
         action='store_true',
         help='Plot output image')
