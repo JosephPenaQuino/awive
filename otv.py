@@ -286,7 +286,7 @@ class OTV():
                             # subregion_trajectories[module_start] += 1
 
                             for r_idx, region in enumerate(self._regions):
-                                if abs(xx0 - region) < 30:
+                                if abs(xx0 - region) < 15:
                                     regions[r_idx].append(velocity_i)
 
                             # update storage
