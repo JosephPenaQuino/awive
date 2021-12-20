@@ -20,7 +20,8 @@ def lens_corr(img, k1=-10.0e-6, c=2, f=8.0):
     """
 
     # define imagery charateristics
-    height, width, __ = img.shape
+    height = img.shape[0]
+    width = img.shape[1]
 
     # define distortion coefficient vector
     dist = np.zeros((4, 1), np.float64)
