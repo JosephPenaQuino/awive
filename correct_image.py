@@ -196,7 +196,6 @@ class Formatter:
         self._shape = (image.shape[0], image.shape[1])
         # update rotation matrix such as the shape of the image changed
         self._rotation_matrix = self._get_rotation_matrix()
-        self._rotation_matrix = self._get_rotation_matrix()
         return image
 
 
