@@ -20,7 +20,8 @@ def lens_corr(img, k1=-10.0e-6, c=2, f=8.0):
     """
 
     # define imagery charateristics
-    height, width, __ = img.shape
+    height = img.shape[0]
+    width = img.shape[1]
 
     # define distortion coefficient vector
     dist = np.zeros((4, 1), np.float64)
@@ -115,7 +116,9 @@ def orthorect_param(img, df_from, df_to, PPM=100, lonlat=False):
     M = cv2.getPerspectiveTransform(pts1, pts2)
 
     # find locations of transformed image corners
-    height, width, __ = img.shape
+    # height, width, __ = img.shape
+    height = img.shape[0]
+    width = img.shape[1]
     C = np.array([[0, 0, 1],
                   [width, 0, 1],
                   [0, height, 1],

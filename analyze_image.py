@@ -2,6 +2,7 @@
 
 '''Analyze image savig it as numpy file'''
 
+import os
 import argparse
 import numpy as np
 import cv2
@@ -14,7 +15,7 @@ FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 
 def main(config_path: str, video_identifier: str, entire_frame=False,
-        undistort=True, roi=True, get_frame=True):
+        undistort=True, roi=True, get_frame=True, plot=False):
     '''Save the first image as numpy file'''
     loader = get_loader(config_path, video_identifier)
     formatter = Formatter(config_path, video_identifier)
@@ -30,6 +31,8 @@ def main(config_path: str, video_identifier: str, entire_frame=False,
     if get_frame:
         cv2.imwrite('image.png', image)
     np.save('tmp.npy', image)
+    if plot:
+        os.system('plotNpy tmp.npy')
 
 
 if __name__ == "__main__":
@@ -60,6 +63,11 @@ if __name__ == "__main__":
         '--roi',
         action='store_true',
         help='Format image using selecting only roi area')
+    parser.add_argument(
+        '-P',
+        '--plot',
+        action='store_true',
+        help='Plot output image')
     args = parser.parse_args()
     CONFIG_PATH = f'{FOLDER_PATH}/{args.statio_name}.json'
     main(config_path=CONFIG_PATH,
@@ -68,4 +76,5 @@ if __name__ == "__main__":
          undistort=args.undistort,
          roi=args.roi,
          get_frame=args.getframe,
+         plot=args.plot
          )
