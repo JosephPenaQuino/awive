@@ -13,6 +13,8 @@ import time
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
+cnt = 0
+
 
 class STIV():
     '''Space Time Image Velocimetry'''
@@ -84,7 +86,7 @@ class STIV():
 
         for i in range(self._stis_qnt):
             self._stis[i] = np.array(self._stis[i])
-            # np.save(f'sti_{i:04}.npy', self._stis[i])
+            np.save(f'images/stiv/sti_{i:04}.npy', self._stis[i])
 
     @staticmethod
     def _get_main_freqs(isd):
@@ -213,13 +215,13 @@ class STIV():
             print('size before reshape:', x)
         # the example of the paper uses 600x600, so do I
         sti = cv2.resize(sti, (600, 600), interpolation=cv2.INTER_LINEAR)
-        np.save('f0.npy', sti)
+        np.save(f'images/stiv/f_{cnt}_0.npy', sti)
 
         # WINDOW FUNCTION FILTERING
         size = sti.shape
         # TODO: Use a better 2d convolution function
         sti = self._conv2d(sti, self._filter_win)
-        np.save('f1.npy', sti)
+        np.save(f'images/stiv/f_{cnt}_1.npy', sti)
 
         # DETECTION OF PRINCIPAL DIRECTION OF FOURIER SPECTRUM
         sti_ft = np.abs(np.fft.fftshift(np.fft.fft2(sti)))
@@ -228,21 +230,21 @@ class STIV():
         c_y = int(sti_ft.shape[1]/2)
         sti_ft[c_x - self._vh_filter:c_x + self._vh_filter, :] = 0
         sti_ft[:, c_y - self._vh_filter:c_y + self._vh_filter] = 0
-        np.save('f2.npy', sti_ft)
+        np.save(f'images/stiv/f_{cnt}_2.npy', sti_ft)
         # transform to polar system
         sti_ft_polar = self._to_polar_system(sti_ft)
-        np.save('f3.npy', sti_ft_polar)
+        np.save(f'images/stiv/f_{cnt}_3.npy', sti_ft_polar)
 
         # FILTER IN FREQUENCY DOMAIN
         polar_mask = self._generate_polar_mask(sti_ft_polar)
         sti_ft_polar = sti_ft_polar * polar_mask
-        np.save('f4.npy', sti_ft_polar)
+        np.save(f'images/stiv/f_{cnt}_4.npy', sti_ft_polar)
 
         sti_ft_filtered = self._to_polar_system(sti_ft_polar, 'invert')
-        np.save('f5.npy', sti_ft_filtered)
+        np.save(f'images/stiv/f_{cnt}_5.npy', sti_ft_filtered)
 
         sti_filtered = np.abs(np.fft.ifft2(np.fft.ifftshift(sti_ft_filtered)))
-        np.save('f6.npy', sti_filtered)
+        np.save(f'images/stiv/f_{cnt}_6.npy', sti_filtered)
 
         sti_filtered = cv2.resize(
                 sti_filtered,
@@ -287,15 +289,15 @@ class STIV():
 
     def _calculate_MOT_using_FFT(self, sti):
         ''''''
-        np.save('g0.npy', sti)
+        np.save(f'images/stiv/g_{cnt}_0.npy', sti)
         sti_canny = cv2.Canny(sti, 10, 10)
-        np.save('g1.npy', sti_canny)
+        np.save(f'images/stiv/g_{cnt}_1.npy', sti_canny)
         sti_padd = self._squarify(sti_canny)
-        np.save('g2.npy', sti_padd)
+        np.save(f'images/stiv/g_{cnt}_2.npy', sti_padd)
         sti_ft = np.abs(np.fft.fftshift(np.fft.fft2(sti_padd)))
-        np.save('g3.npy', sti_ft)
+        np.save(f'images/stiv/g_{cnt}_3.npy', sti_ft)
         sti_ft_polar = self._to_polar_system(sti_ft)
-        np.save('g4.npy', sti_ft_polar)
+        np.save(f'images/stiv/g_{cnt}_4.npy', sti_ft_polar)
         isd = np.sum(sti_ft_polar.T, axis=0)
         freq, _ = self._get_main_freqs(isd)
         angle0 = 2*math.pi *freq / sti_ft_polar.shape[0]
@@ -368,19 +370,21 @@ class STIV():
 
     def run(self, show_image=False):
         '''Execute'''
+        global cnt
         velocities = []
         for idx, sti in enumerate(self._stis):
             if self._debug >= 1:
                 print(f'space time image {idx} shape: {sti.shape}')
+            cnt = idx
             sti = self._filter_sti(sti)
             # velocity, mask = self._calculate_MOT_using_GMT(sti)
             velocity, mask = self._calculate_MOT_using_FFT(sti)
             velocities.append(velocity)
 
             final_image = sti + mask
-            np.save(f'stiv_final_{idx:02}.npy', final_image)
+            np.save(f'images/stiv/stiv_final_{idx:02}.npy', final_image)
             cv2.imwrite(
-                    f'stiv_final_{idx:02}.png',
+                    f'images/stiv/stiv_final_{idx:02}.png',
                     self._generate_final_image(sti, mask),
                     )
             if show_image:
