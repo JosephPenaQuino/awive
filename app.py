@@ -15,7 +15,7 @@ def main(config_path: str, video_identifier: str):
     loader = get_loader(config_path, video_identifier)
     image = loader.read()
     cv2.imshow('image', image)
-    cv2.waitKey(0) 
+    cv2.waitKey(0)
     cv2.destroyAllWindows()
     loader.end()
 
