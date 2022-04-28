@@ -179,6 +179,7 @@ class Formatter:
         if not self._config['gcp']['apply']:
             return image
 
+        image = self._crop_using_refs(image)
         # apply lens distortion correction
         if self._config['image_correction']['apply']:
             image = ip.lens_corr(
@@ -189,7 +190,6 @@ class Formatter:
                     )
 
         # apply orthorectification
-        image = self._crop_using_refs(image)
         image = ip.orthorect_trans(image,
                                    self._or_params[0],
                                    self._or_params[1])
