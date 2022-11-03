@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "adaptive-water-image-velocimetry-estimator"
+version = "0.1.0"
+description = "Joseph Pena's bachelor thesis work"
+authors = ["Joseph P. <joseph.pena@utec.edu.pe>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "adaptive_water_image_velocimetry_estimator"}]
+
+[tool.poetry.dependencies]
+python = "3.11"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
