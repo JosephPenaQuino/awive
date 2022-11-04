@@ -9,6 +9,8 @@ packages = [{include = "adaptive_water_image_velocimetry_estimator"}]
 
 [tool.poetry.dependencies]
 python = "3.11"
+opencv-python = "^4.6.0.66"
+isort = "^5.10.1"
 
 
 [build-system]
