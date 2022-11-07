@@ -1,28 +1,30 @@
-#!/home/joseph/anaconda3/envs/imageProcessing/bin/python3
-'''Correct distortion of videos
+"""Correct distortion of videos.
 
 This module contains classes and functions needed to correct distortion of
 videos, either intrinsic or extring to the camera. Also it saves the corrected
 frames in defined directory path.
 
-'''
+"""
 
-import json
 import argparse
-import numpy as np
-import cv2
-from loader import get_loader
-import imageprep as ip
+import json
 import time
+from typing import Any
 
+import cv2
+import imageprep as ip
+import numpy as np
+from loader import get_loader
+from numpy.typing import NDArray
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 
 class Formatter:
-    '''Format frames in order to be used by image processing methods'''
+    """Format frames in order to be used by image processing methods."""
 
-    def __init__(self, config_path: str, video_identifier: str):
+    def __init__(self, config_path: str, video_identifier: str) -> None:
+        """Initialize Formatter object."""
         # read configuration file
         with open(config_path) as json_file:
             self._config = json.load(json_file)[video_identifier]
@@ -48,8 +50,11 @@ class Formatter:
                         self._config['pre_roi']['h2'])
         self._pre_slice = (w_slice, h_slice)
 
-
-    def _get_orthorectification_params(self, sample_image: np.ndarray, reduce=None):
+    def _get_orthorectification_params(
+        self,
+        sample_image: np.ndarray,
+        reduce=None
+    ) -> tuple[Any, NDArray]:
         x = self._config['gcp']['pixels']
         df_from = list(map(list, zip(*[(v) for k, v in x.items()])))
         if reduce is not None:
@@ -76,25 +81,28 @@ class Formatter:
         return (M, C)
 
     def _get_rotation_matrix(self):
-        '''
+        """Rotate matrix.
+
         based on:
         https://stackoverflow.com/questions/43892506/opencv-python-rotate-image-without-cropping-sides
-        '''
+        """
         a = 1.0   # TODO: idk why is 1.0
         height, width = self._shape
         image_center = (width/2, height/2)
-        # getRotationMatrix2D needs coordinates in reverse order (width, height) compared to shape
+        # getRotationMatrix2D needs coordinates in reverse
+        # order (width, height) compared to shape
         rot_mat= cv2.getRotationMatrix2D(
             image_center,
             self._rotation_angle,
             a)
         # rotation calculates the cos and sin, taking absolutes of those.
-        abs_cos = abs(rot_mat[0,0])
-        abs_sin = abs(rot_mat[0,1])
+        abs_cos = abs(rot_mat[0, 0])
+        abs_sin = abs(rot_mat[0, 1])
         # find the new width and height bounds
         bound_w = int(height * abs_sin + width * abs_cos)
         bound_h = int(height * abs_cos + width * abs_sin)
-        # subtract old image center (bringing image back to origo) and adding the new image center coordinates
+        # subtract old image center (bringing image back to origo) and adding
+        # the new image center coordinates
         rot_mat[0, 2] += bound_w/2 - image_center[0]
         rot_mat[1, 2] += bound_h/2 - image_center[1]
         self._bound = (bound_w, bound_h)
@@ -114,7 +122,7 @@ class Formatter:
         return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     def show_entire_image(self):
-        '''Set slice to cover the entire image'''
+        """Set slice to cover the entire image"""
         w_slice = slice(0, 6000)
         h_slice = slice(0, 6000)
         self._slice = (w_slice, h_slice)
@@ -144,7 +152,7 @@ class Formatter:
         return new_image
 
     def apply_roi_extraction(self, image: np.ndarray, gray=True) -> np.ndarray:
-        '''Apply image rotation, cropping and rgb2gray'''
+        """Apply image rotation, cropping and rgb2gray"""
         # it must be in this order in order to calibrate easier
         image = self._pre_crop(image)
         image = self._rotate(image)
@@ -154,7 +162,7 @@ class Formatter:
         return image
 
     def apply_image_enhancement(self, image: np.ndarray) -> np.ndarray:
-        '''Apply contrast- and gamma correction'''
+        """Apply contrast- and gamma correction"""
         # img_grey = ip.color_corr(
         #     img_orth,
         #     alpha=self.enhance_alpha,
@@ -175,7 +183,7 @@ class Formatter:
         return image
 
     def apply_distortion_correction(self, image: np.ndarray) ->np.ndarray:
-        '''Given GCP, undistort image'''
+        """Given GCP, undistort image."""
         if not self._config['gcp']['apply']:
             return image
 
@@ -190,9 +198,11 @@ class Formatter:
                     )
 
         # apply orthorectification
-        image = ip.orthorect_trans(image,
-                                   self._or_params[0],
-                                   self._or_params[1])
+        image = ip.orthorect_trans(
+            image,
+           self._or_params[0],
+           self._or_params[1]
+        )
         self._shape = (image.shape[0], image.shape[1])
         # update rotation matrix such as the shape of the image changed
         self._rotation_matrix = self._get_rotation_matrix()
@@ -200,7 +210,7 @@ class Formatter:
 
 
 def main(config_path: str, video_identifier: str, save_image: bool):
-    '''Demonstrate basic example of video correction'''
+    """Demonstrate basic example of video correction."""
     t0 = time.process_time()
     loader = get_loader(config_path, video_identifier)
     t1 = time.process_time()
@@ -228,6 +238,7 @@ def main(config_path: str, video_identifier: str, save_image: bool):
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -250,5 +261,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
-    main(config_path=CONFIG_PATH, video_identifier=args.video_identifier,
-            save_image=args.save)
+    main(
+        config_path=CONFIG_PATH,
+        video_identifier=args.video_identifier,
+        save_image=args.save
+    )

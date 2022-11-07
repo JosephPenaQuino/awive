@@ -1,53 +1,54 @@
-'''Loader of videos of frames'''
+"""Loader of videos of frames"""
 
 import json
 import os
 import abc
 import argparse
 import cv2
+import numpy as np
 
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 
 class Loader(metaclass=abc.ABCMeta):
-    '''Abstract class of loader'''
-    def __init__(self, offset: int):
-        self._offset = offset
-        self._index = 0
+    """Abstract class of loader."""
+    def __init__(self, offset: int) -> None:
+        self._offset: int = offset
+        self._index: int = 0
 
     @property
-    def index(self):
-        '''index getter'''
+    def index(self) -> int:
+        """index getter."""
         return self._index
 
     @abc.abstractmethod
-    def has_images(self):
-        '''Check if the source contains one more frame'''
+    def has_images(self) -> bool:
+        """Check if the source contains one more frame."""
 
     @abc.abstractmethod
-    def read(self):
-        '''Read a new image from the source'''
+    def read(self) -> np.ndarray:
+        """Read a new image from the source."""
 
     @abc.abstractmethod
-    def end(self):
-        '''Free all resources'''
+    def end(self) -> bool:
+        """Free all resources."""
 
 
 class ImageLoader(Loader):
-    '''Loader that loads images from a directory'''
+    """Loader that loads images from a directory."""
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict) -> None:
         super().__init__(config['image_number_offset'])
         self._image_dataset = config['image_dataset']
         self._prefix = config['image_path_prefix']
         self._digits = config['image_path_digits']
         self._image_number = len(os.listdir(self._image_dataset))
 
-    def has_images(self):
+    def has_images(self) -> bool:
         return self._index < self._image_number
 
-    def _path(self, i: int):
+    def _path(self, i: int) -> str:
         i += self._offset
         if self._digits == 5:
             return f'{self._image_dataset}/{self._prefix}{i:05}.jpg'
@@ -55,20 +56,20 @@ class ImageLoader(Loader):
             return f'{self._image_dataset}/{self._prefix}{i:03}.jpg'
         return f'{self._image_dataset}/{self._prefix}{i:04}.jpg'
 
-    def set_index(self, index: int):
-        '''Set index of the loader to read any image from the folder'''
+    def set_index(self, index: int) -> None:
+        """Set index of the loader to read any image from the folder"""
         self._index = index
 
-    def read(self):
+    def read(self) -> np.ndarray:
         self._index += 1
         return cv2.imread(self._path(self._index))
 
-    def end(self):
+    def end(self) -> None:
         pass
 
 
 class VideoLoader(Loader):
-    '''Loader that loads from a video'''
+    """Loader that loads from a video"""
 
     def __init__(self, config: dict):
         super().__init__(config['image_number_offset'])
@@ -114,10 +115,10 @@ class VideoLoader(Loader):
 
 
 def get_loader(config_path: str, video_identifier: str) -> Loader:
-    '''Return a ImageLoader or VideoLoader class
+    """Return a ImageLoader or VideoLoader class
     Read config path and if the image dataset folder is full the function
     returns a ImageLoader, if not, then returns a VideoLoader
-    '''
+    """
     # check if in image folder there are located the extracted images
     with open(config_path) as json_file:
         config = json.load(json_file)[video_identifier]
@@ -129,7 +130,7 @@ def get_loader(config_path: str, video_identifier: str) -> Loader:
 
 
 def main(config_path: str, video_identifier: str, save_image: bool):
-    '''Execute a basic example of loader'''
+    """Execute a basic example of loader"""
     loader = get_loader(config_path, video_identifier)
     image = loader.read()
     if save_image:

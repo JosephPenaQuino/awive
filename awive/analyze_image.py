@@ -1,25 +1,30 @@
-#!/home/joseph/anaconda3/envs/imageProcessing/bin/python3
+"""Analyze image savig it as numpy file."""
 
-'''Analyze image savig it as numpy file'''
-
-import os
 import argparse
-import numpy as np
+
 import cv2
-
-from loader import get_loader
+import numpy as np
 from correct_image import Formatter
+from loader import get_loader, Loader
 
+from libs.npyplotter.npyplotter.plot_npy import picshow
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 
-def main(config_path: str, video_identifier: str, entire_frame=False,
-        undistort=True, roi=True, get_frame=True, plot=False):
-    '''Save the first image as numpy file'''
-    loader = get_loader(config_path, video_identifier)
+def main(
+    config_path: str,
+    video_identifier: str,
+    entire_frame=False,
+    undistort=True,
+    roi=True,
+    get_frame=True,
+    plot=False
+) -> None:
+    """Save the first image as numpy file."""
+    loader: Loader = get_loader(config_path, video_identifier)
     formatter = Formatter(config_path, video_identifier)
-    image = loader.read()
+    image: np.ndarray = loader.read()
     if get_frame:
         cv2.imwrite('image.png', image)
     if entire_frame:
@@ -32,7 +37,7 @@ def main(config_path: str, video_identifier: str, entire_frame=False,
         cv2.imwrite('image.png', image)
     np.save('tmp.npy', image)
     if plot:
-        os.system('plotNpy tmp.npy')
+        picshow([image])
 
 
 if __name__ == "__main__":
@@ -70,11 +75,12 @@ if __name__ == "__main__":
         help='Plot output image')
     args = parser.parse_args()
     CONFIG_PATH = f'{FOLDER_PATH}/{args.statio_name}.json'
-    main(config_path=CONFIG_PATH,
-         video_identifier=args.video_identifier,
-         entire_frame=args.frame,
-         undistort=args.undistort,
-         roi=args.roi,
-         get_frame=args.getframe,
-         plot=args.plot
-         )
+    main(
+        config_path=CONFIG_PATH,
+        video_identifier=args.video_identifier,
+        entire_frame=args.frame,
+        undistort=args.undistort,
+        roi=args.roi,
+        get_frame=args.getframe,
+        plot=args.plot
+    )

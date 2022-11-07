@@ -11,8 +11,12 @@ packages = [{include = "adaptive_water_image_velocimetry_estimator"}]
 python = "3.11"
 opencv-python = "^4.6.0.66"
 isort = "^5.10.1"
-
+mypy = "^0.982"
+flake8 = "^5.0.4"
+bandit = "^1.7.4"
+pydocstyle = "^6.1.1"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+

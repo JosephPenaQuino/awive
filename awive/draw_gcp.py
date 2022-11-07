@@ -1,5 +1,5 @@
 #!/home/joseph/anaconda3/envs/imageProcessing/bin/python3
-'''Draw a circle in the ground control point'''
+"""Draw a circle in the ground control point"""
 
 import os
 import json
@@ -15,7 +15,7 @@ TEXT_THICKNESS = 2
 
 
 def draw_circle(img, center, number):
-    '''draw a circle with a number'''
+    """draw a circle with a number"""
     text = str(number)
     cv2.circle(img, center, 10, 255, -1)
 
@@ -26,7 +26,7 @@ def draw_circle(img, center, number):
 
 def main(config_path: str, video_identifier: str, plot=False, undistort=False,
         roi=False):
-    '''read config and draw circles in the image'''
+    """read config and draw circles in the image"""
     with open(config_path) as json_file:
         config = json.load(json_file)[video_identifier]['gcp']
     formatter = Formatter(config_path, video_identifier)
