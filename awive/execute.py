@@ -1,16 +1,16 @@
-#!/home/joseph/anaconda3/envs/imageProcessing/bin/python3
-'''execute both methods'''
-import os
+"""Execute both methods."""
 import argparse
-import json
 import time
-import sti
+
 import otv
+import sti
 
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
+
 def execute_method(method_name, station_name, video_identifier, config_path):
+    """Execute a method."""
     t = time.process_time()
     if method_name == 'sti':
         ret = sti.main(config_path, video_identifier)
@@ -26,7 +26,7 @@ def execute_method(method_name, station_name, video_identifier, config_path):
 
 
 def main(station_name, video_identifier, config_path):
-    '''execute both methods'''
+    """Execute both methods."""
     execute_method('sti', station_name, video_identifier, config_path)
     execute_method('otv', station_name, video_identifier, config_path)
 
@@ -46,9 +46,8 @@ if __name__ == "__main__":
         type=str,
         default=FOLDER_PATH)
     args = parser.parse_args()
-    CONFIG_PATH = f'{args.path}/{args.station_name}.json'
     main(
         station_name=args.station_name,
         video_identifier=args.video_identifier,
-        config_path=CONFIG_PATH
-        )
+        config_path=f'{args.path}/{args.station_name}.json',
+    )

@@ -1,9 +1,10 @@
-"""Loader of videos of frames"""
+"""Loader of videos of frames."""
 
-import json
-import os
 import abc
 import argparse
+import json
+import os
+
 import cv2
 import numpy as np
 
@@ -13,13 +14,15 @@ FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 class Loader(metaclass=abc.ABCMeta):
     """Abstract class of loader."""
+
     def __init__(self, offset: int) -> None:
+        """Initialize loader."""
         self._offset: int = offset
         self._index: int = 0
 
     @property
     def index(self) -> int:
-        """index getter."""
+        """Index getter."""
         return self._index
 
     @abc.abstractmethod
@@ -31,7 +34,7 @@ class Loader(metaclass=abc.ABCMeta):
         """Read a new image from the source."""
 
     @abc.abstractmethod
-    def end(self) -> bool:
+    def end(self) -> None:
         """Free all resources."""
 
 
@@ -39,6 +42,7 @@ class ImageLoader(Loader):
     """Loader that loads images from a directory."""
 
     def __init__(self, config: dict) -> None:
+        """Initialize loader."""
         super().__init__(config['image_number_offset'])
         self._image_dataset = config['image_dataset']
         self._prefix = config['image_path_prefix']
@@ -46,6 +50,7 @@ class ImageLoader(Loader):
         self._image_number = len(os.listdir(self._image_dataset))
 
     def has_images(self) -> bool:
+        """Check if the source contains one more frame."""
         return self._index < self._image_number
 
     def _path(self, i: int) -> str:
@@ -57,26 +62,29 @@ class ImageLoader(Loader):
         return f'{self._image_dataset}/{self._prefix}{i:04}.jpg'
 
     def set_index(self, index: int) -> None:
-        """Set index of the loader to read any image from the folder"""
+        """Set index of the loader to read any image from the folder."""
         self._index = index
 
     def read(self) -> np.ndarray:
+        """Read a new image from the source."""
         self._index += 1
         return cv2.imread(self._path(self._index))
 
     def end(self) -> None:
+        """Free all resources."""
         pass
 
 
 class VideoLoader(Loader):
-    """Loader that loads from a video"""
+    """Loader that loads from a video."""
 
     def __init__(self, config: dict):
+        """Initialize loader."""
         super().__init__(config['image_number_offset'])
         self._video_path = config['video_path']
         self._cap = cv2.VideoCapture(self._video_path)
-        self._image = None # Current image
-        self._image_read = False # Check if the current images was read
+        self._image = None  # Current image
+        self._image_read = False  # Check if the current images was read
 
         # Get number of frames
         cap = cv2.VideoCapture(self._video_path)
@@ -90,11 +98,14 @@ class VideoLoader(Loader):
         for _ in range(self._offset+1):
             if self.has_images():
                 self.read()
+
     @property
     def image_shape(self):
+        """Return the shape of the images."""
         return (self.width, self.height)
 
     def has_images(self):
+        """Check if the source contains one more frame."""
         if not self._cap.isOpened():
             return False
         ret, self._image = self._cap.read()
@@ -102,6 +113,7 @@ class VideoLoader(Loader):
         return ret
 
     def read(self):
+        """Read a new image from the source."""
         self._index += 1
         if self._image_read:
             ret, self._image = self._cap.read()
@@ -110,12 +122,14 @@ class VideoLoader(Loader):
         self._image_read = True
         return self._image
 
-    def end(self):
+    def end(self) -> None:
+        """Free all resources."""
         self._cap.release()
 
 
 def get_loader(config_path: str, video_identifier: str) -> Loader:
-    """Return a ImageLoader or VideoLoader class
+    """Return a ImageLoader or VideoLoader class.
+
     Read config path and if the image dataset folder is full the function
     returns a ImageLoader, if not, then returns a VideoLoader
     """
@@ -130,7 +144,7 @@ def get_loader(config_path: str, video_identifier: str) -> Loader:
 
 
 def main(config_path: str, video_identifier: str, save_image: bool):
-    """Execute a basic example of loader"""
+    """Execute a basic example of loader."""
     loader = get_loader(config_path, video_identifier)
     image = loader.read()
     if save_image:
@@ -165,5 +179,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
-    main(config_path=CONFIG_PATH, video_identifier=args.video_identifier,
-            save_image=args.save)
+    main(
+        config_path=CONFIG_PATH,
+        video_identifier=args.video_identifier,
+        save_image=args.save
+    )

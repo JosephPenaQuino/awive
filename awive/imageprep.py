@@ -1,24 +1,18 @@
-import numpy as np
+"""Image preparation."""
 import cv2
-import math
+import numpy as np
 
 
 def lens_corr(img, k1=-10.0e-6, c=2, f=8.0):
+    """Lens distortion correction based on lens charateristics.
+
+    :param img: original image
+    :param k1: barrel lens distortion parameter
+    :param c: optical center
+    :param f: focal length
+
+    :return corr_img: image corrected for lens distortion
     """
-    Lens distortion correction based on lens charateristics.
-
-    Input:
-    ------
-    img - original image
-    k1 - barrel lens distortion parameter
-    c - optical center
-    f - focal length
-
-    Output:
-    -------
-    corr_img - image corrected for lens distortion
-    """
-
     # define imagery charateristics
     height = img.shape[0]
     width = img.shape[1]
@@ -74,8 +68,7 @@ def xy_coord(df):
 
 
 def orthorect_param(img, df_from, df_to, PPM=100, lonlat=False):
-    """
-    Image orthorectification parameters based on 4 GCPs.
+    """Image orthorectification parameters based on 4 GCPs.
     GCPs need to be at water level.
 
     Input DataFrames as follows:
@@ -100,7 +93,6 @@ def orthorect_param(img, df_from, df_to, PPM=100, lonlat=False):
     df_to - Original coordinates of the GCPs in metres (relevant if
             converted from geographic coordinate system)
     """
-
     if lonlat:
         df_to = xy_coord(df_to)
 
@@ -130,8 +122,10 @@ def orthorect_param(img, df_from, df_to, PPM=100, lonlat=False):
 
     # define new transformation matrix based on image corners
     # otherwise, part of the imagery will not be saved
-    M_new = cv2.getPerspectiveTransform(np.float32(C[:, :2]),
-                                        np.float32(C_new))
+    M_new = cv2.getPerspectiveTransform(
+        np.float32(C[:, :2]),
+        np.float32(C_new)
+    )
 
     return M_new, C_new, df_to
 

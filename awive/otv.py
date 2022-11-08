@@ -1,5 +1,4 @@
-#!/home/joseph/anaconda3/envs/imageProcessing/bin/python3
-'''Optical Tracking Image Velocimetry'''
+"""Optical Tracking Image Velocimetry."""
 
 import argparse
 import random
@@ -14,25 +13,30 @@ from loader import (get_loader, Loader)
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
+
 def get_magnitude(kp1, kp2):
-    '''get the distance between two keypoints'''
+    """Get the distance between two keypoints."""
     # return math.sqrt((kp2.pt[1] - kp1.pt[1])**2 + (kp2.pt[0] - kp1.pt[0]) ** 2 )
     return abs(kp2.pt[0] - kp1.pt[0])
 
+
 def get_angle(kp1, kp2):
-    '''get angle between two key points'''
+    """Get angle between two key points."""
     return math.atan2(kp2.pt[1] - kp1.pt[1] , kp2.pt[0] - kp1.pt[0]) *  180 / math.pi
+
 
 def _get_velocity(kp1, kp2, real_distance_pixel, time, fps):
     if time == 0:
         return 0
     return get_magnitude(kp1, kp2) * real_distance_pixel * fps / time
 
-def reject_outliers(data, m = 2.):
+
+def reject_outliers(data, m=2.):
     d = np.abs(data - np.median(data))
     mdev = np.median(d)
     s = d/mdev if mdev else 0.
     return data[s<m]
+
 
 def compute_stats(velocity, hist=False):
     v = np.array(sum(velocity, []))
@@ -55,12 +59,16 @@ def compute_stats(velocity, hist=False):
     return avg, max_, min_, std_dev, count
 
 
-
-
 class OTV():
-    '''Optical Tracking Image Velocimetry'''
-    def __init__(self, config_path: str, video_identifier: str,
-            prev_gray: np.ndarray, debug=0):
+    """Optical Tracking Image Velocimetry."""
+
+    def __init__(
+        self,
+        config_path: str,
+        video_identifier: str,
+        prev_gray: np.ndarray,
+        debug=0
+    ) -> None:
         self._debug = debug
         with open(config_path) as json_file:
             root_config = json.load(json_file)[video_identifier]
@@ -87,7 +95,7 @@ class OTV():
                 self._mask.astype(np.uint8),
                 (self._height, self._width),
                 cv2.INTER_NEAREST
-                )
+            )
         else:
             self._mask = None
 
@@ -118,7 +126,7 @@ class OTV():
         return False
 
     def _final_filtering(self, kp1, kp2):
-        '''Final filter of keypoints'''
+        """Final filter of keypoints"""
         magnitude = get_magnitude(kp1, kp2)
         if magnitude < self._final_min_distance:
             return False
@@ -150,7 +158,7 @@ class OTV():
 
 
     def run(self, loader: Loader, formatter: Formatter, show_video=False):
-        '''Execute OTV and get velocimetry'''
+        """Execute OTV and get velocimetry"""
         # initialze parametrers
         detector = cv2.FastFeatureDetector_create()
         previous_frame = None
@@ -375,7 +383,7 @@ class OTV():
 
 
 def draw_vectors(image, new_list, old_list, masks):
-    '''Draw vectors of velocity and return the output and update mask'''
+    """Draw vectors of velocity and return the output and update mask"""
     if len(image.shape) == 3:
         color = (0, 255, 0)
         thick = 1
@@ -408,9 +416,8 @@ def draw_vectors(image, new_list, old_list, masks):
     return output
 
 
-
 def main(config_path: str, video_identifier: str, show_video=False, debug=0):
-    '''Basic example of OTV'''
+    """Basic example of OTV"""
     loader = get_loader(config_path, video_identifier)
     formatter = Formatter(config_path, video_identifier)
     loader.has_images()
@@ -420,35 +427,43 @@ def main(config_path: str, video_identifier: str, show_video=False, debug=0):
     otv = OTV(config_path, video_identifier, prev_gray, debug)
     return otv.run(loader, formatter, show_video)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "statio_name",
-        help="Name of the station to be analyzed")
+        help="Name of the station to be analyzed"
+    )
     parser.add_argument(
         "video_identifier",
-        help="Index of the video of the json config file")
+        help="Index of the video of the json config file"
+    )
     parser.add_argument(
         '-p',
         '--path',
         help='Path to the config folder',
         type=str,
-        default=FOLDER_PATH)
+        default=FOLDER_PATH
+    )
     parser.add_argument(
         '-d',
         '--debug',
         help='Activate debug mode',
         type=int,
-        default=0)
+        default=0
+    )
     parser.add_argument(
         '-v',
         '--video',
         action='store_true',
-        help='Play video while processing')
+        help='Play video while processing'
+    )
     args = parser.parse_args()
-    CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
-    print(main(config_path=CONFIG_PATH,
-         video_identifier=args.video_identifier,
-         show_video=args.video,
-         debug=args.debug
-         ))
+    print(
+        main(
+            config_path=f'{args.path}/{args.statio_name}.json',
+            video_identifier=args.video_identifier,
+            show_video=args.video,
+            debug=args.debug
+        )
+    )

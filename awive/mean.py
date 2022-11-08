@@ -1,7 +1,9 @@
+"""Mean."""
 import cv2 as cv
-from utils import ImageLoader
-from matplotlib import pyplot as plt
 import numpy as np
+
+from matplotlib import pyplot as plt
+from utils import ImageLoader
 
 imageDataset = '/home/joseph/Documents/Thesis/Dataset/ssivDataset/images'
 imageLength = 372
@@ -28,7 +30,7 @@ def main():
         cv.imshow(f'k = {i:02}%', im-s)
 
     cv.imshow('original image', im)
-    cv.waitKey(0) 
+    cv.waitKey(0)
     cv.destroyAllWindows()
 
 

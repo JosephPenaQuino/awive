@@ -1,5 +1,4 @@
-#!/home/joseph/anaconda3/envs/imageProcessing/bin/python3
-'''Space Time Image Velocimetry'''
+"""Space Time Image Velocimetry."""
 
 import json
 import math
@@ -17,8 +16,10 @@ cnt = 0
 
 
 class STIV():
-    '''Space Time Image Velocimetry'''
+    """Space Time Image Velocimetry."""
+
     def __init__(self, config_path: str, video_identifier: str, debug=0):
+        """Initialize STIV."""
         with open(config_path) as json_file:
             root_config = json.load(json_file)[video_identifier]
             self._config = root_config['stiv']
@@ -41,9 +42,9 @@ class STIV():
 
         # create filter window
         w_size = self._config['filter_window']
-        W_mn = (1 - np.cos(2* math.pi * np.arange(w_size) / w_size)) / 2
+        W_mn = (1 - np.cos(2 * math.pi * np.arange(w_size) / w_size)) / 2
         W_mn = np.tile(W_mn, (w_size, 1))
-        self._filter_win =  W_mn * W_mn.T
+        self._filter_win = W_mn * W_mn.T
 
         # vertical and horizontal filter width
         self._vh_filter = 1
@@ -52,10 +53,9 @@ class STIV():
         print('- generate_st_images\t', t1 - t0)
 
     def _get_velocity(self, angle):
-        '''
-        Given STI pattern angle, calculate velocity
-        - angle in radians
-        '''
+        """Given STI pattern angle, calculate velocity.
+        :param angle: angle in radians
+        """
         velocity = math.tan(angle) * self._fps / self._ppm
         return velocity
 
@@ -122,35 +122,35 @@ class STIV():
 
     @property
     def stis(self):
-        '''Return Space-Time image'''
+        """Return Space-Time image."""
         return self._stis
 
     def _process_sti(self, image: np.ndarray):
-        '''process sti image'''
+        """Process sti image."""
         # image = cv2.medianBlur(image, 5)
         sobelx = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=self._ksize)
         sobelt = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=self._ksize)
         if sobelx.sum() == 0 and sobelt.sum() == 0:
-            if self._debug >=  1:
+            if self._debug >= 1:
                 print("WARNING: gradients are zero")
             return 0, 0
 
         Jxx = (sobelx * sobelx).sum()
         Jtt = (sobelt * sobelt).sum()
         Jxt = (sobelx * sobelt).sum()
-        angle =  math.atan2(2*Jxt, Jtt - Jxx) / 2
+        angle = math.atan2(2*Jxt, Jtt - Jxx) / 2
         coherence = math.sqrt((Jtt-Jxx)**2 + 4*Jxt**2) / (Jxx + Jtt)
         return angle, coherence
 
     @staticmethod
     def _get_new_point(point, angle, length):
-        '''
+        """
         point - Tuple (x, y)
         angle - Angle you want your end point at in degrees.
         length - Length of the line you want to plot.
 
         Will plot the line on a 10 x 10 plot.
-        '''
+        """
         # unpack the first point
         x, y = point
         # find the end point
@@ -165,9 +165,9 @@ class STIV():
 
     @staticmethod
     def _conv2d(a, f):
-        '''
+        """
         https://stackoverflow.com/questions/43086557/convolve2d-just-by-using-numpy
-        '''
+        """
         s = f.shape + tuple(np.subtract(a.shape, f.shape) + 1)
         strd = np.lib.stride_tricks.as_strided
         subM = strd(a, shape = s, strides = a.strides * 2)
@@ -175,9 +175,9 @@ class STIV():
 
     @staticmethod
     def _to_polar_system(img: np.ndarray, option='convert'):
-        '''
+        """
         Transform 2d image to polar system
-        '''
+        """
         if option == 'invert':
             flag = cv2.WARP_INVERSE_MAP
         else:
@@ -192,7 +192,7 @@ class STIV():
         return polar
 
     def _filter_sti(self, sti: np.ndarray):
-        '''
+        """
         Filter image using method proposed in:
         "An improvement of the Space-Time Image Velocimetry combined with a new
         denoising method for estimating river discharge"
@@ -204,7 +204,7 @@ class STIV():
         - Xu, Chong Yu
         - Guo, Shenglian
         - Wang, Jun
-        '''
+        """
         # resize in order to have more precision
         x = min(sti.shape)
         if x == sti.shape[0]:
@@ -259,7 +259,7 @@ class STIV():
         return sti_filtered
 
     def _generate_final_image(self, sti, mask):
-        '''generate rgb image'''
+        """generate rgb image"""
         new_sti = np.interp(
                 sti,
                 (sti.min(), sti.max()),
@@ -288,7 +288,7 @@ class STIV():
         return np.pad(M, padding)
 
     def _calculate_MOT_using_FFT(self, sti):
-        ''''''
+        """"""
         np.save(f'images/stiv/g_{cnt}_0.npy', sti)
         sti_canny = cv2.Canny(sti, 10, 10)
         np.save(f'images/stiv/g_{cnt}_1.npy', sti_canny)
@@ -318,11 +318,11 @@ class STIV():
         return velocity, mask
 
     def _calculate_MOT_using_GMT(self, sti: np.ndarray):
-        '''
+        """
         Calcualte MOT using GMT explained:
         "Development of a non-intrusive and efficient flow monitoring technique:
         The space-time image velocimetry (STIV)"
-        '''
+        """
         window_width = int(self._config['window_shape'][0]/2)
         window_height = int(self._config['window_shape'][1]/2)
 
@@ -369,7 +369,7 @@ class STIV():
         return velocity, mask
 
     def run(self, show_image=False):
-        '''Execute'''
+        """Execute"""
         global cnt
         velocities = []
         for idx, sti in enumerate(self._stis):
@@ -405,7 +405,7 @@ class STIV():
 
 
 def main(config_path: str, video_identifier: str, show_image=False, debug=0):
-    '''Basic example of STIV usage'''
+    """Execute example of STIV usage."""
     t0 = time.process_time()
     stiv = STIV(config_path, video_identifier, debug)
     t1 = time.process_time()
@@ -421,31 +421,39 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "statio_name",
-        help="Name of the station to be analyzed")
+        help="Name of the station to be analyzed"
+    )
     parser.add_argument(
         "video_identifier",
-        help="Index of the video of the json config file")
+        help="Index of the video of the json config file"
+    )
     parser.add_argument(
         '-p',
         '--path',
         help='Path to the config folder',
         type=str,
-        default=FOLDER_PATH)
+        default=FOLDER_PATH
+    )
     parser.add_argument(
         '-d',
         '--debug',
         help='Activate debug mode',
         type=int,
-        default=0)
+        default=0
+    )
     parser.add_argument(
         '-i',
         '--image',
         action='store_true',
-        help='Show every space time image')
+        help='Show every space time image'
+    )
     args = parser.parse_args()
     CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
-    print(main(config_path=CONFIG_PATH,
-         video_identifier=args.video_identifier,
-         show_image=args.image,
-         debug=args.debug
-         ))
+    print(
+        main(
+            config_path=CONFIG_PATH,
+            video_identifier=args.video_identifier,
+            show_image=args.image,
+            debug=args.debug
+        )
+    )

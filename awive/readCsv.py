@@ -1,8 +1,8 @@
+"""Read csv."""
 import pandas as pd
-import numpy as np
 import matplotlib.cm
 import cv2 as cv
-from utils import ImageLoader
+from awive.utils import ImageLoader
 
 path = ('/home/joseph/Documents/Thesis/Dataset/TowardHarmonization/dataset/'
         'CastorRiver/20190410/Reference/ref5.csv')
@@ -32,12 +32,6 @@ def main():
     maxVal = df['v'].max()
     rangeVal = maxVal - minVal
 
-    # remove randomly
-    # np.random.seed(10)
-    # remove_n = 100
-    # drop_indices = np.random.choice(df.index, remove_n, replace=False)
-    # df = df.drop(drop_indices)
-
     for i, val in df.iterrows():
         v =(val['v']-minVal)/rangeVal
         start_point = (int(val['x']), int(val['y']))
@@ -59,9 +53,8 @@ def main():
     new_shape = (width // resize_ratio, height // resize_ratio)
     im = cv.resize(im, new_shape)
     cv.imshow('main', im)
-    cv.waitKey(0) 
+    cv.waitKey(0)
     cv.destroyAllWindows()
-        
 
 
 if __name__ == "__main__":

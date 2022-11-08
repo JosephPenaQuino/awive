@@ -1,12 +1,10 @@
-#!/home/joseph/anaconda3/envs/imageProcessing/bin/python3
-'''
-Water Level Detector using method described in:
+"""Water Level Detector using method described in.
 Embedded implementation of image-based water-level measurement system
 by:
 - Kim, J.
 - Han, Y.
 - Hahn, H.
-'''
+"""
 
 import os
 import json
@@ -20,8 +18,10 @@ FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 
 class WaterlevelDetector:
-    '''Water Level Detector'''
+    """Detect water level."""
+
     def __init__(self, config_path: str, video_identifier: str):
+        """Initialize."""
         with open(config_path) as json_file:
             config = json.load(json_file)[video_identifier]['water_level']
         self._loader = get_loader(config_path, video_identifier)
@@ -71,7 +71,7 @@ class WaterlevelDetector:
 
     @staticmethod
     def _get_threshold(image):
-        '''get threshold'''
+        """Get threshold."""
         hist, _ = np.histogram(image.ravel(), density=True, bins=255)
         max_idx = 0
         max_slope = abs(hist[0] - hist[1])
@@ -84,7 +84,7 @@ class WaterlevelDetector:
         return threshold, hist
 
     def _compute_water_level(self, image, threshold):
-        '''using given threshold compute the water level of the image'''
+        """Use given threshold compute the water level of the image."""
         print('threshold:', threshold)
         image = (image > threshold).astype(np.uint8)
         np.save('out1.npy', image)
@@ -103,7 +103,7 @@ class WaterlevelDetector:
         return height
 
     def get_water_level(self, plot):
-        '''calculate and return water level'''
+        """Calculate and return water level."""
         return self._get_difference_accumulation(plot)
         # np.save('out0.npy', accumulated_image)
         # threshold, _ = self._get_threshold(accumulated_image)
@@ -112,8 +112,13 @@ class WaterlevelDetector:
         # return height
 
 
-def main(config_path: str, video_identifier: str, show_image=False, plot=False):
-    '''Execute basic example of water level detector'''
+def main(
+    config_path: str,
+    video_identifier: str,
+    show_image=False,
+    plot=False
+) -> None:
+    """Execute basic example of water level detector."""
     water_level_detector = WaterlevelDetector(config_path, video_identifier)
     idpp = water_level_detector.get_water_level(plot)
     return idpp
@@ -141,7 +146,8 @@ if __name__ == '__main__':
         help='Plot output image')
     args = parser.parse_args()
     CONFIG_PATH = f'{args.path}/{args.statio_name}.json'
-    main(config_path=CONFIG_PATH,
-         video_identifier=args.video_identifier,
-         plot=args.plot,
-         )
+    main(
+        config_path=CONFIG_PATH,
+        video_identifier=args.video_identifier,
+        plot=args.plot,
+    )
