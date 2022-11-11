@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-from loader import get_loader, Loader
+from awive.loader import get_loader, Loader
 
 
 DEFAULT_DATASET_PATH = "/home/joseph/Documents/Thesis/Dataset/config"
