@@ -18,6 +18,8 @@ pydocstyle = "^6.1.1"
 matplotlib = "^3.6.2"
 pandas = "^1.5.1"
 pydantic = "^1.10.2"
+wget = "^3.2"
+requests = "^2.28.1"
 
 [build-system]
 requires = ["poetry-core"]

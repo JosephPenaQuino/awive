@@ -9,6 +9,7 @@ from typing import Iterable
 
 import cv2
 import numpy as np
+from numpy.typing import NDArray
 
 from awive.config import Config
 
@@ -95,13 +96,18 @@ class VideoLoader(Loader):
     def __init__(self, config: Config) -> None:
         """Initialize loader."""
         super().__init__(config)
-        self._cap = cv2.VideoCapture(self.config.video_path)
-        self._image = None  # Current image
-        self._image_read = False  # Check if the current images was read
+
+        # check if config.video_path exists
+        if not Path(config.video_path).exists():
+            raise FileNotFoundError(f'Video not found: {config.video_path}')
+
+        self._cap: cv2.VideoCapture = cv2.VideoCapture(self.config.video_path)
+        self._image: NDArray[np.uint8] | None = None  # Current image
+        self._image_read: bool = False  # Check if the current images was read
 
         # Get number of frames
-        cap = cv2.VideoCapture(self.config.video_path)
-        property_id = int(cv2.CAP_PROP_FRAME_COUNT)
+        cap: cv2.VideoCapture = cv2.VideoCapture(self.config.video_path)
+        property_id: int = int(cv2.CAP_PROP_FRAME_COUNT)
         self.total_frames = int(cv2.VideoCapture.get(cap, property_id)) + 1
         self.fps = cap.get(cv2.CAP_PROP_FPS)
         self.width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -125,11 +131,14 @@ class VideoLoader(Loader):
         self._image_read = False
         return ret
 
-    def read(self):
+    def read(self) -> NDArray[np.uint8]:
         """Read a new image from the source."""
         self._index += 1
         if self._image_read:
             ret, self._image = self._cap.read()
+            print("Read image")
+            print("{ret=}")
+            print("{self._image=}")
             if not ret:
                 print('error at reading')
         self._image_read = True
