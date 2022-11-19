@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-from awive.config import Config
+from awive.config import ConfigDataset
 
 FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
@@ -19,11 +19,16 @@ FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 class Loader(metaclass=abc.ABCMeta):
     """Abstract class of loader."""
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: ConfigDataset) -> None:
         """Initialize loader."""
         self._offset: int = config.image_number_offset
         self._index: int = 0
         self.config = config
+
+    @property
+    def image_shape(self):
+        """Return the shape of the images."""
+        return (self.config.width, self.config.height)
 
     @property
     def index(self) -> int:
@@ -46,7 +51,7 @@ class Loader(metaclass=abc.ABCMeta):
 class ImageLoader(Loader):
     """Loader that loads images from a directory."""
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: ConfigDataset) -> None:
         """Initialize loader."""
         super().__init__(config)
         self._image_dataset = config.image_dataset
@@ -93,7 +98,7 @@ class ImageLoader(Loader):
 class VideoLoader(Loader):
     """Loader that loads from a video."""
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: ConfigDataset) -> None:
         """Initialize loader."""
         super().__init__(config)
 
@@ -118,11 +123,6 @@ class VideoLoader(Loader):
             if self.has_images():
                 self.read()
 
-    @property
-    def image_shape(self):
-        """Return the shape of the images."""
-        return (self.width, self.height)
-
     def has_images(self):
         """Check if the source contains one more frame."""
         if not self._cap.isOpened():
@@ -136,9 +136,6 @@ class VideoLoader(Loader):
         self._index += 1
         if self._image_read:
             ret, self._image = self._cap.read()
-            print("Read image")
-            print("{ret=}")
-            print("{self._image=}")
             if not ret:
                 print('error at reading')
         self._image_read = True
@@ -149,19 +146,8 @@ class VideoLoader(Loader):
         self._cap.release()
 
 
-def get_loader(config_path: str, video_identifier: str) -> Loader:
-    """Return a ImageLoader or VideoLoader class.
-
-    :return image_loader: if the image_dataset has any image jpg or png
-    :return video_loader: if the previous assumption is not true
-    """
-    # check if in image folder there are located the extracted images
-    config = Config(
-        **json.loads(
-            Path(config_path).read_text()
-        )[video_identifier]
-    )
-
+def make_loader(config: ConfigDataset) -> (ImageLoader | VideoLoader):
+    """Make a loader based on config."""
     image_folder_path = config.image_dataset
     # check if the image_folder_path contains any jpg or png file
     for file in Path(image_folder_path).iterdir():
@@ -169,6 +155,21 @@ def get_loader(config_path: str, video_identifier: str) -> Loader:
             return ImageLoader(config)
 
     return VideoLoader(config)
+
+
+def get_loader(config_path: str, video_identifier: str) -> Loader:
+    """Return a ImageLoader or VideoLoader class.
+
+    :return image_loader: if the image_dataset has any image jpg or png
+    :return video_loader: if the previous assumption is not true
+    """
+    # check if in image folder there are located the extracted images
+    config = ConfigDataset(
+        **json.loads(
+            Path(config_path).read_text()
+        )[video_identifier]['dataset']
+    )
+    return make_loader(config)
 
 
 def main(config_path: str, video_identifier: str, save_image: bool):

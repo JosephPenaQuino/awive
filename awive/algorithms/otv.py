@@ -6,12 +6,14 @@ import json
 import math
 import numpy as np
 import cv2
-from awive.correct_image import Formatter
-from awive.loader import (get_loader, Loader)
+from correct_image import Formatter
+from loader import (get_loader, Loader)
+from awive.config import ConfigOtv
+from awive.algorithms.image_velocimetry import ImageVelocimetry
 # from sti import applyMean
 
 
-FOLDER_PATH = "examples/datasets"
+FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
 
 
 def get_magnitude(kp1, kp2):
@@ -53,10 +55,237 @@ def compute_stats(velocity, hist=False):
         import matplotlib.pyplot as plt
         plt.hist(v.astype(int))
         plt.ylabel('Probability')
-        plt.xlabel('Data');
+        plt.xlabel('Data')
         plt.show()
 
     return avg, max_, min_, std_dev, count
+
+
+class Otv(ImageVelocimetry):
+    """Optical Tracking Image Velocimetry."""
+
+    def __init__(self, config: ConfigOtv) -> None:
+        """Initialize OTV."""
+        self._config: ConfigOtv = config
+
+    def run(self, loader: Loader) -> None:
+        """Run the OTV algorithm."""
+        detector = cv2.FastFeatureDetector_create()
+        previous_frame = None
+        keypoints_current = []
+        keypoints_start = []
+        time = []
+        keypoints_predicted = []
+        masks = []
+
+        valid = []
+        velocity_mem = []
+        keypoints_mem_current = []
+        keypoints_mem_predicted = []
+        velocity = []
+        angle = []
+        distance = []
+        path = []
+        traj_map = np.zeros((1200, 900))
+
+        # update width and height if needed
+        if loader.image_shape[0] < self.config.width:
+            self._width = loader.image_shape[0]
+        if loader.image_shape[1] < self.config.height:
+            self._height = loader.image_shape[1]
+
+        regions = list([] for _ in range(len(self._regions)))
+
+        # Initialization
+        for i in range(loader.total_frames):
+            valid.append([])
+            velocity_mem.append([])
+            velocity.append([])
+            angle.append([])
+            distance.append([])
+            path.append([])
+
+        while loader.has_images():
+            # get current frame
+            current_frame = loader.read()
+            current_frame = formatter.apply_distortion_correction(current_frame)
+            current_frame = formatter.apply_roi_extraction(current_frame)
+            # current_frame = self._apply_mask(current_frame)
+
+            # get features as a list of KeyPoints
+            keypoints = detector.detect(current_frame, None)
+            random.shuffle(keypoints)
+
+            # update lot of lists
+            if previous_frame is None:
+                for i, keypoint in enumerate(keypoints):
+                    if len(keypoints_current) < self._max_features:
+                        keypoints_current.append(keypoint)
+                        keypoints_start.append(keypoint)
+                        time.append(loader.index)
+                        valid[loader.index].append(False)
+                        velocity_mem[loader.index].append(0)
+                        path[loader.index].append(i)
+            else:
+                for i, keypoint in enumerate(reversed(keypoints)):
+                    if len(keypoints_current) < self._max_features:
+                        keypoints_current.append(keypoint)
+                        keypoints_start.append(keypoint)
+                        time.append(loader.index)
+                        valid[loader.index].append(False)
+                        velocity_mem[loader.index].append(0)
+
+            if self._debug >= 1:
+                print('Analyzing frame:', loader.index)
+            if previous_frame is not None:
+                pts1 = cv2.KeyPoint_convert(keypoints_current)
+                pts2, st, err = cv2.calcOpticalFlowPyrLK(
+                    previous_frame,
+                    current_frame,
+                    pts1,
+                    None,
+                    **self.lk_params
+                    )
+
+                # add predicted by Lucas-Kanade new keypoints
+                keypoints_predicted.clear()
+                for pt2 in pts2:
+                    keypoints_predicted.append(cv2.KeyPoint(
+                        pt2[0],
+                        pt2[1],
+                        1.0
+                        ))
+
+                max_distance = self._max_level * (2 * self._radius + 1)
+                max_distance /= self._resolution
+
+                k = 0
+
+                for i, keypoint in enumerate(keypoints_current):
+                    partial_filter = self._partial_filtering(
+                        keypoint,
+                        keypoints_predicted[i],
+                        max_distance
+                        )
+                    # check if the trajectory finished or the vector is invalid
+                    if not (st[i] and partial_filter):
+                        final_filter = self._final_filtering(
+                            keypoints_start[i],
+                            keypoints_current[i]
+                            )
+                        # check if it is a valid trajectory
+                        if final_filter:
+                            velocity_i = _get_velocity(
+                                keypoints_start[i],
+                                keypoints_current[i],
+                                self._pixel_to_real / self._resolution,
+                                loader.index - time[i],
+                                loader.fps
+                                )
+                            angle_i = get_angle(
+                                keypoints_start[i],
+                                keypoints_current[i]
+                                )
+
+                            xx0 = int(keypoints_start[i].pt[1])
+                            yy0 = int(keypoints_start[i].pt[0])
+                            traj_map[xx0][yy0] += 100
+                            # sub-region computation
+                            # module_start = int(keypoints_start[i].pt[1] /
+                            #         self._step)
+                            # module_current = int(keypoints_current[i].pt[1] /
+                            #         self._step)
+                            # if module_start == module_current:
+                            # subregion_velocity[module_start].append(velocity_i)
+                            # subregion_trajectories[module_start] += 1
+
+                            for r_idx, region in enumerate(self._regions):
+                                if abs(xx0 - region) < 15:
+                                    regions[r_idx].append(velocity_i)
+
+                            # update storage
+                            pos = i
+                            j = loader.index - 1
+                            while j >= time[i]:
+                                valid[j][pos] = True
+                                velocity_mem[j][pos] = velocity_i
+                                pos = path[j][pos]
+                                j-=1
+
+                            velocity[loader.index].append(velocity_i)
+                            angle[loader.index].append(angle_i)
+                            distance[loader.index].append(
+                                velocity_i * (loader.index - time[i]) / loader.fps)
+
+                        continue
+
+                    # Add new displacement vector
+                    keypoints_current[k] = keypoints_current[i]
+                    keypoints_start[k] = keypoints_start[i]
+                    keypoints_predicted[k] = keypoints_predicted[i]
+                    path[loader.index].append(i)
+                    velocity_mem[loader.index].append(0)
+                    valid[loader.index].append(False)
+                    time[k] = time[i]
+                    k += 1
+
+                # Only keep until the kth keypoint in order to filter invalid
+                # vectors
+                keypoints_current = keypoints_current[:k]
+                keypoints_start = keypoints_start[:k]
+                keypoints_predicted = keypoints_predicted[:k]
+                time = time[:k]
+
+
+            if self._debug >= 1:
+                print('number of trajectories:', len(keypoints_current))
+
+            if show_video:
+                if previous_frame is not None:
+                    color_frame = cv2.cvtColor(current_frame, cv2.COLOR_GRAY2RGB)
+                    output = draw_vectors(
+                        color_frame,
+                        keypoints_predicted,
+                        keypoints_current,
+                        masks
+                        )
+                    cv2.imshow("sparse optical flow", output)
+                    if cv2.waitKey(10) & 0xFF == ord('q'):
+                        break
+            previous_frame = current_frame.copy()
+            keypoints_mem_current.append(keypoints_current)
+            keypoints_mem_predicted.append(keypoints_predicted)
+
+            # TODO: I guess the swap is not needed such as in the next iteration
+            # the keypoints_predicted will be cleaned
+            if len(keypoints_predicted) != 0:
+                keypoints_predicted, keypoints_current = keypoints_current, keypoints_predicted
+        np.save('traj.npy', traj_map)
+
+        loader.end()
+        cv2.destroyAllWindows()
+        avg, max_, min_, std_dev, count = compute_stats(velocity, show_video)
+
+        if self._debug >= 1:
+            print('avg:', round(avg, 4))
+            print('max:', round(max_, 4))
+            print('min:', round(min_, 4))
+            print('std_dev:', round(std_dev, 2))
+            print('count:', count)
+
+        out_json = {}
+        for i, sv in enumerate(regions):
+            out_json[str(i)] = {}
+            t = np.array(sv)
+            t = t[t!=0]
+            if len(t) != 0:
+                t = reject_outliers(t)
+                m = t.mean()
+            else:
+                m = 0
+            out_json[str(i)]['velocity'] = m
+            out_json[str(i)]['count'] = len(t)
+        return out_json
 
 
 class OTV():
@@ -85,8 +314,8 @@ class OTV():
         self._resolution = config['resolution']
         self._pixel_to_real = config['pixel_to_real']
 
-        self._width = root_config["preprocessing"]['roi']['w2']  -root_config["preprocessing"]['roi']['w1']
-        self._height = root_config["preprocessing"]['roi']['h2'] - root_config["preprocessing"]['roi']['h1']
+        self._width = root_config['roi']['w2'] - root_config['roi']['w1']
+        self._height = root_config['roi']['h2'] - root_config['roi']['h1']
         mask_path = config['mask_path']
         self._regions = config['lines']
         if len(mask_path) != 0:
@@ -207,10 +436,7 @@ class OTV():
             # current_frame = self._apply_mask(current_frame)
 
             # get features as a list of KeyPoints
-            keypoints = list(detector.detect(current_frame, None))
-            # print(f"{type(keypoints)=}")
-            # print(f"{len(keypoints)=}")
-            # print(f"{type(keypoints[0])=}")
+            keypoints = detector.detect(current_frame, None)
             random.shuffle(keypoints)
 
             # update lot of lists
@@ -464,7 +690,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(
         main(
-            config_path=f'{args.path}/{args.statio_name}/config.json',
+            config_path=f'{args.path}/{args.statio_name}.json',
             video_identifier=args.video_identifier,
             show_video=args.video,
             debug=args.debug

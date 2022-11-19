@@ -49,5 +49,5 @@ if __name__ == "__main__":
     main(
         station_name=args.station_name,
         video_identifier=args.video_identifier,
-        config_path=f'{args.path}/{args.station_name}.json',
+        config_path = f'{args.path}/{args.station_name}.json',
     )
