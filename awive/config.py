@@ -97,7 +97,8 @@ class ConfigOtv(BaseModel):
     partial_max_angle: float
     final_min_angle: float
     final_max_angle: float
-    max_Features: int
+    final_min_distance: int
+    max_features: int
     region_step: int
     resolution: int
     features: ConfigOtvFeatures
@@ -129,3 +130,4 @@ class Config(BaseModel):
     dataset: ConfigDataset
     otv: ConfigOtv
     stiv: ConfigStiv
+    preprocessing: ConfigPreProcessing
