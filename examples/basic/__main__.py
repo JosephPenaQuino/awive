@@ -2,9 +2,10 @@
 
 from pathlib import Path
 
+import time
 import cv2
 import numpy as np
-import requests as req
+import requests
 from numpy.typing import NDArray
 
 from awive.loader import Loader, get_loader
@@ -15,13 +16,29 @@ VIDEO_ID = "basic"
 FILE_ID = "1JreGYQEYUB4DkIk-MkE4n_-2RzSb0W27"
 
 
-def download_basic_video(file_id: str, video_path: str) -> None:
-    """Download basic video."""
-    url: str = f"https://docs.google.com/uc?id={file_id}"
-    print(f"{url=}")
-    data = req.get(url)
-    with open(video_path, 'wb')as file:
-        file.write(data.content)
+def download_file(file_id: str, local_filename: str) -> str:
+    """Download a file from Google Drive."""
+    url: str = (
+        "https://drive.google.com/uc?"
+        f"export=download&confirm=9iBg&id={file_id}"
+    )
+    CHUNK_SIZE: int = 4194304  # 4MB
+    total_bytes: float = 0
+    print(f"Downloading file from {url}")
+    start: float = time.time()
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(local_filename, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
+                total_bytes += len(chunk)
+                print(
+                    f"\rDownloaded: {(total_bytes/1024/1024):0.2f} MB",
+                    end=''
+                )
+                f.write(chunk)
+    print('')
+    print(f"Downloaded {local_filename} in {time.time() - start} seconds")
+    return local_filename
 
 
 def basic_plot_image(config_path: str, video_identifier: str) -> None:
@@ -38,5 +55,5 @@ def basic_plot_image(config_path: str, video_identifier: str) -> None:
 
 if __name__ == "__main__":
     if not Path(VIDEO_PATH).exists():
-        download_basic_video(FILE_ID, VIDEO_PATH)
+        download_file(FILE_ID, VIDEO_PATH)
     basic_plot_image(CONFIG_PATH, VIDEO_ID)
