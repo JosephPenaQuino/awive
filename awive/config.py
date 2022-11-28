@@ -23,7 +23,7 @@ class ConfigGcp(BaseModel):
     apply: bool
     pixels: Position
     meters: Position
-    ground_truth: GroundTruth
+    ground_truth: list[GroundTruth]
 
 
 class ConfigRoi(BaseModel):

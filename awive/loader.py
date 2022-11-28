@@ -40,7 +40,7 @@ class Loader(metaclass=abc.ABCMeta):
         """Check if the source contains one more frame."""
 
     @abc.abstractmethod
-    def read(self) -> np.ndarray:
+    def read(self) -> NDArray[np.uint8]:
         """Read a new image from the source."""
 
     @abc.abstractmethod
