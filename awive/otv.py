@@ -360,7 +360,8 @@ class OTV():
         np.save('traj.npy', traj_map)
 
         loader.end()
-        cv2.destroyAllWindows()
+        if show_video:
+            cv2.destroyAllWindows()
         avg, max_, min_, std_dev, count = compute_stats(velocity, show_video)
 
         if self._debug >= 1:
