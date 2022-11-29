@@ -107,7 +107,7 @@ class VideoLoader(Loader):
             raise FileNotFoundError(f'Video not found: {config.video_path}')
 
         self._cap: cv2.VideoCapture = cv2.VideoCapture(self.config.video_path)
-        self._image: NDArray[np.uint8] | None = None  # Current image
+        self._image = None  # Current image
         self._image_read: bool = False  # Check if the current images was read
 
         # Get number of frames
@@ -146,7 +146,7 @@ class VideoLoader(Loader):
         self._cap.release()
 
 
-def make_loader(config: ConfigDataset) -> (ImageLoader | VideoLoader):
+def make_loader(config: ConfigDataset):
     """Make a loader based on config."""
     image_folder_path = config.image_dataset
     # check if the image_folder_path contains any jpg or png file
