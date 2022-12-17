@@ -211,8 +211,9 @@ class Otv(ImageVelocimetry):
         if loader.image_shape[1] < self._height:
             self._height = loader.image_shape[1]
 
-        subregion_velocity = self._init_subregion_list(2, self._width)
-        subregion_trajectories = self._init_subregion_list(1, self._width)
+        # This are not used. but idk why :c
+        # subregion_velocity = self._init_subregion_list(2, self._width)
+        # subregion_trajectories = self._init_subregion_list(1, self._width)
 
         regions: list[list[float]] = [[] for _ in range(len(self._regions))]
 
