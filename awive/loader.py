@@ -24,6 +24,8 @@ class Loader(metaclass=abc.ABCMeta):
         self._offset: int = config.image_number_offset
         self._index: int = 0
         self.config = config
+        self.fps: int = 1
+        self.total_frames = 0
 
     @property
     def image_shape(self):

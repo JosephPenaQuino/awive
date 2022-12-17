@@ -1,6 +1,8 @@
 """Configuration."""
 
 from pydantic import BaseModel
+import json
+from pathlib import Path
 
 
 class Position(BaseModel):
@@ -131,3 +133,8 @@ class Config(BaseModel):
     otv: ConfigOtv
     stiv: ConfigStiv
     preprocessing: ConfigPreProcessing
+
+    @staticmethod
+    def from_json(file_path: str, video_id: str):
+        """Load config from json."""
+        return Config(**json.load(Path(file_path).open())[video_id])
