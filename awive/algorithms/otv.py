@@ -189,10 +189,10 @@ class Otv(ImageVelocimetry):
         # initialze parametrers
         detector = cv2.FastFeatureDetector_create()
         previous_frame = None
-        keypoints_current: list[cv2.KeyPoint] = []
+        keypts_curr: list[cv2.KeyPoint] = []  # current keypoints
         keypoints_start: list[cv2.KeyPoint] = []
         time: list[int] = []  # list of indices of Keypoints
-        keypoints_predicted: list[cv2.KeyPoint] = []
+        keypts_pred: list[cv2.KeyPoint] = []  # predicted keypoints
         masks: list[NDArray[np.uint8]] = []
 
         valid: list[list[bool]] = []  # Indices of valid Keypoints
@@ -244,8 +244,8 @@ class Otv(ImageVelocimetry):
             # update lot of lists
             if previous_frame is None:
                 for i, keypoint in enumerate(keypoints):
-                    if len(keypoints_current) < self._max_features:
-                        keypoints_current.append(keypoint)
+                    if len(keypts_curr) < self._max_features:
+                        keypts_curr.append(keypoint)
                         keypoints_start.append(keypoint)
                         time.append(loader.index)
                         valid[loader.index].append(False)
@@ -253,8 +253,8 @@ class Otv(ImageVelocimetry):
                         path[loader.index].append(i)
             else:
                 for i, keypoint in enumerate(reversed(keypoints)):
-                    if len(keypoints_current) < self._max_features:
-                        keypoints_current.append(keypoint)
+                    if len(keypts_curr) < self._max_features:
+                        keypts_curr.append(keypoint)
                         keypoints_start.append(keypoint)
                         time.append(loader.index)
                         valid[loader.index].append(False)
@@ -263,7 +263,7 @@ class Otv(ImageVelocimetry):
             if self._debug >= 1:
                 print('Analyzing frame:', loader.index)
             if previous_frame is not None:
-                pts1 = cv2.KeyPoint_convert(keypoints_current)
+                pts1 = cv2.KeyPoint_convert(keypts_curr)
                 pts2, st, _ = cv2.calcOpticalFlowPyrLK(
                     previous_frame,
                     current_frame,
@@ -273,9 +273,9 @@ class Otv(ImageVelocimetry):
                 )
 
                 # add predicted by Lucas-Kanade new keypoints
-                keypoints_predicted.clear()
+                keypts_pred.clear()
                 for pt2 in pts2:
-                    keypoints_predicted.append(cv2.KeyPoint(
+                    keypts_pred.append(cv2.KeyPoint(
                         pt2[0],
                         pt2[1],
                         1.0
@@ -286,30 +286,30 @@ class Otv(ImageVelocimetry):
 
                 k = 0
 
-                for i, keypoint in enumerate(keypoints_current):
+                for i, keypoint in enumerate(keypts_curr):
                     partial_filter = self._partial_filtering(
                         keypoint,
-                        keypoints_predicted[i],
+                        keypts_pred[i],
                         max_distance
                     )
                     # check if the trajectory finished or the vector is invalid
                     if not (st[i] and partial_filter):
                         final_filter = self._final_filtering(
                             keypoints_start[i],
-                            keypoints_current[i]
+                            keypts_curr[i]
                         )
                         # check if it is a valid trajectory
                         if final_filter:
                             velocity_i = _get_velocity(
                                 keypoints_start[i],
-                                keypoints_current[i],
+                                keypts_curr[i],
                                 self._pixel_to_real / self._resolution,
                                 loader.index - time[i],
                                 loader.fps
                             )
                             angle_i: float = get_angle(
                                 keypoints_start[i],
-                                keypoints_current[i]
+                                keypts_curr[i]
                             )
 
                             xx0 = int(keypoints_start[i].pt[1])
@@ -348,9 +348,9 @@ class Otv(ImageVelocimetry):
                         continue
 
                     # Add new displacement vector
-                    keypoints_current[k] = keypoints_current[i]
+                    keypts_curr[k] = keypts_curr[i]
                     keypoints_start[k] = keypoints_start[i]
-                    keypoints_predicted[k] = keypoints_predicted[i]
+                    keypts_pred[k] = keypts_pred[i]
                     path[loader.index].append(i)
                     velocity_mem[loader.index].append(0)
                     valid[loader.index].append(False)
@@ -359,13 +359,13 @@ class Otv(ImageVelocimetry):
 
                 # Only keep until the kth keypoint in order to filter invalid
                 # vectors
-                keypoints_current = keypoints_current[:k]
+                keypts_curr = keypts_curr[:k]
                 keypoints_start = keypoints_start[:k]
-                keypoints_predicted = keypoints_predicted[:k]
+                keypts_pred = keypts_pred[:k]
                 time = time[:k]
 
             if self._debug >= 1:
-                print('number of trajectories:', len(keypoints_current))
+                print('number of trajectories:', len(keypts_curr))
 
             if show_video:
                 if previous_frame is not None:
@@ -373,21 +373,21 @@ class Otv(ImageVelocimetry):
                         current_frame, cv2.COLOR_GRAY2RGB)
                     output = draw_vectors(
                         color_frame,
-                        keypoints_predicted,
-                        keypoints_current,
+                        keypts_pred,
+                        keypts_curr,
                         masks
                     )
                     cv2.imshow("sparse optical flow", output)
                     if cv2.waitKey(10) & 0xFF == ord('q'):
                         break
             previous_frame = current_frame.copy()
-            keypoints_mem_current.append(keypoints_current)
-            keypoints_mem_predicted.append(keypoints_predicted)
+            keypoints_mem_current.append(keypts_curr)
+            keypoints_mem_predicted.append(keypts_pred)
 
-            # TODO: I guess the swap is not needed such as in the next iteration
-            # the keypoints_predicted will be cleaned
-            if len(keypoints_predicted) != 0:
-                keypoints_predicted, keypoints_current = keypoints_current, keypoints_predicted
+            # TODO: I guess the swap is not needed such as in the next
+            # iteration the keypoints_predicted will be cleaned
+            if len(keypts_pred) != 0:
+                keypts_pred, keypts_curr = keypts_curr, keypts_pred
         np.save('traj.npy', traj_map)
 
         loader.end()
