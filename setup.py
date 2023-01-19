@@ -3,17 +3,17 @@ from setuptools import setup, find_packages
 
 
 setup(
-    name="adaptive-water-image-velocimetr-estimator",
-    version="0.1dev",
+    name="adaptive-water-image-velocimetry-estimator",
+    version="0.1.dev0",
     license="",
-    long_description=open('README').read(),
+    long_description=open("README.md").read(),
     description="A python package for estimating the velocity of water images",
     url=(
         "https://github.com/JosephPenaQuino/"
         "adaptive-water-image-velocimetry-estimator"
     ),
-    author='omners',
-    author_email='joseph.pena@oebrasil.com.br',
+    author='Joseph Pena',
+    author_email='joseph.pena@utec.edu.pe',
     packages=find_packages(),
     install_requires=[
     ],
