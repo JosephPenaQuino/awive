@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "adaptive-water-image-velocimetry-estimator"
+name = "awive_joseph.pena"
 version = "0.1.0"
 description = "Joseph Pena's bachelor thesis work"
 authors = ["Joseph P. <joseph.pena@utec.edu.pe>"]
