@@ -1,8 +1,8 @@
 """Basic usage of Loader: Load an image and plot."""
 
+import time
 from pathlib import Path
 
-import time
 import cv2
 import numpy as np
 import requests

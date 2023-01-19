@@ -1,14 +1,12 @@
 """Basic example of using OTV."""
 
+import json
+import time
 from pathlib import Path
 
-import time
-import json
-
+from awive.algorithms.otv import Otv
 from awive.config import Config
 from awive.loader import Loader, make_loader
-from awive.algorithms.otv import Otv
-
 
 CONFIG_PATH = "examples/basic/config.json"
 VIDEO_ID = "basic"
