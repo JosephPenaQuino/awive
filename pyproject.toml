@@ -1,11 +1,11 @@
 [tool.poetry]
-name = "awive_joseph.pena"
+name = "awive"
 version = "0.1.0"
 description = "Joseph Pena's bachelor thesis work"
 authors = ["Joseph P. <joseph.pena@utec.edu.pe>"]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "adaptive_water_image_velocimetry_estimator"}]
+packages = [{include = "awive"}]
 
 [tool.poetry.dependencies]
 python = "3.9.16"
@@ -26,4 +26,3 @@ autopep8 = "^2.0.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-
