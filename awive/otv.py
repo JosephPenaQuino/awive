@@ -40,6 +40,8 @@ def reject_outliers(data, m=2.):
 
 def compute_stats(velocity, hist=False):
     v = np.array(sum(velocity, []))
+    if len(v) == 0:
+        return 0, 0, 0, 0, 0
     v = reject_outliers(v)
     count = len(v)
     if count == 0:
