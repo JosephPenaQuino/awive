@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "awive"
-version = "0.1.0"
+version = "0.2.0"
 description = "Joseph Pena's bachelor thesis work"
 authors = ["Joseph P. <joseph.pena@utec.edu.pe>"]
 license = "MIT"
