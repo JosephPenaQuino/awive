@@ -10,8 +10,6 @@ import numpy as np
 from awive.correct_image import Formatter
 from awive.loader import Loader, get_loader
 
-FOLDER_PATH = "examples/datasets"
-
 
 def main(
     config_path: str,
@@ -45,7 +43,7 @@ def main(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        usage="python -m awive.analyze_image river-brenta d0000 -P",
+        usage="python -m awive.analyze_image examples/datasets/river-brenta/config.json d0000 -P",
         description=(
             "Analyze image savig it as numpy file.\n"
             "Order of processing:\n"
@@ -59,8 +57,8 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "station_name",
-        help="Name of the station to be analyzed",
+        "config_path",
+        help="Path to configuration file path",
     )
     parser.add_argument(
         "video_identifier",
@@ -92,9 +90,8 @@ if __name__ == "__main__":
         action="store_true",
         help="Plot output image")
     args = parser.parse_args()
-    CONFIG_PATH = f"{FOLDER_PATH}/{args.station_name}/config.json"
     main(
-        config_path=CONFIG_PATH,
+        config_path=args.config_path,
         video_identifier=args.video_identifier,
         entire_frame=args.frame,
         undistort=args.undistort,
