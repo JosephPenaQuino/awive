@@ -45,7 +45,18 @@ def main(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        usage="python -m awive.analyze_image river-brenta d0000 -P"
+        usage="python -m awive.analyze_image river-brenta d0000 -P",
+        description=(
+            "Analyze image savig it as numpy file.\n"
+            "Order of processing:\n"
+            " 1. Crop image using gcp.pixels parameter\n"
+            " 2. If enabled, lens correction using preprocessing.image_correction\n"
+            " 3. Orthorectification using relation gcp.pixels and gcp.real\n"
+            " 4. Pre crop\n"
+            " 5. Rotation\n"
+            " 6. Crop\n"
+            " 7. Convert to gray scale\n"
+        ),
     )
     parser.add_argument(
         "station_name",
