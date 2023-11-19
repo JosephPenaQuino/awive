@@ -423,7 +423,17 @@ def draw_vectors(image, new_list, old_list, masks):
 
 
 def main(config_path: str, video_identifier: str, show_video=False, debug=0):
-    """Basic example of OTV"""
+    """Basic example of OTV
+
+    Processing for each frame
+        1. Crop image using gcp.pixels parameter
+        2. If enabled, lens correction using preprocessing.image_correction
+        3. Orthorectification using relation gcp.pixels and gcp.real
+        4. Pre crop
+        5. Rotation
+        6. Crop
+        7. Convert to gray scale
+    """
     loader = get_loader(config_path, video_identifier)
     formatter = Formatter(config_path, video_identifier)
     loader.has_images()
