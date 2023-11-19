@@ -3,13 +3,14 @@
 import argparse
 
 import cv2
+import matplotlib.pyplot as plt
+from npyplotter.plot_npy import picshow
 import numpy as np
-from correct_image import Formatter
-from loader import get_loader, Loader
 
-from libs.npyplotter.npyplotter.plot_npy import picshow
+from awive.correct_image import Formatter
+from awive.loader import Loader, get_loader
 
-FOLDER_PATH = '/home/joseph/Documents/Thesis/Dataset/config'
+FOLDER_PATH = "examples/datasets"
 
 
 def main(
@@ -26,7 +27,7 @@ def main(
     formatter = Formatter(config_path, video_identifier)
     image: np.ndarray = loader.read()
     if get_frame:
-        cv2.imwrite('image.png', image)
+        cv2.imwrite("image.png", image)
     if entire_frame:
         formatter.show_entire_image()
     if undistort:
@@ -34,47 +35,51 @@ def main(
     if roi:
         image = formatter.apply_roi_extraction(image)
     if get_frame:
-        cv2.imwrite('image.png', image)
-    np.save('tmp.npy', image)
+        cv2.imwrite("image.png", image)
+    np.save("tmp.npy", image)
     if plot:
+        print("Plotting image")
         picshow([image])
+        plt.show()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        'statio_name',
-        help='Name of the station to be analyzed')
+        "station_name",
+        help="Name of the station to be analyzed",
+    )
     parser.add_argument(
-        'video_identifier',
-        help='Index of the video of the json config file')
+        "video_identifier",
+        help="Index of the video of the json config file",
+    )
     parser.add_argument(
-        '-f',
-        '--frame',
-        action='store_true',
-        help='Plot entire frame or not')
+        "-f",
+        "--frame",
+        action="store_true",
+        help="Plot entire frame or not")
     parser.add_argument(
-        '-u',
-        '--undistort',
-        action='store_true',
-        help='Format image using distortion correction')
+        "-u",
+        "--undistort",
+        action="store_true",
+        help="Format image using distortion correction")
     parser.add_argument(
-        '-g',
-        '--getframe',
-        action='store_true',
-        help='Get first frame')
+        "-g",
+        "--getframe",
+        action="store_true",
+        help="Get first frame")
     parser.add_argument(
-        '-r',
-        '--roi',
-        action='store_true',
-        help='Format image using selecting only roi area')
+        "-r",
+        "--roi",
+        action="store_true",
+        help="Format image using selecting only roi area")
     parser.add_argument(
-        '-P',
-        '--plot',
-        action='store_true',
-        help='Plot output image')
+        "-P",
+        "--plot",
+        action="store_true",
+        help="Plot output image")
     args = parser.parse_args()
-    CONFIG_PATH = f'{FOLDER_PATH}/{args.statio_name}.json'
+    CONFIG_PATH = f"{FOLDER_PATH}/{args.station_name}/config.json"
     main(
         config_path=CONFIG_PATH,
         video_identifier=args.video_identifier,
