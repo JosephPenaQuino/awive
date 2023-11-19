@@ -44,7 +44,9 @@ def main(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        usage="python -m awive.analyze_image river-brenta d0000 -P"
+    )
     parser.add_argument(
         "station_name",
         help="Name of the station to be analyzed",
