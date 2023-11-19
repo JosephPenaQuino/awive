@@ -1,0 +1,3 @@
+[submodule "libs/npy-plotter"]
+	path = libs/npy-plotter
+	url = git@github.com:JosephPenaQuino/npy-plotter.git
