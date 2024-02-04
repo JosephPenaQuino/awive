@@ -1,8 +1,8 @@
 # AWIVE
-AWIVE, the acrynomes of Adaptive Water Image Velocimetry Estimator, is a
-software package for the estimation of the velocity field from a sequence of
-images. It is composed by the methods STIV and OTV, which aim at estimate
-velocimetry with a low computational cost.
+AWIVE, an acronym for Adaptive Water Image Velocimetry Estimator, is a
+ software package designed for estimating the velocity field from a sequence of
+ images. It comprises two methods: STIV and OTV, both geared towards achieving
+ velocity estimations with low computational costs.
 
 ## Installing
 
@@ -11,4 +11,3 @@ Install and update using pip:
 ```bash
 pip install awive
 ```
-
