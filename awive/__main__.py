@@ -23,7 +23,7 @@ def main(config_path: str, video_identifier: str) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser("awive")
     parser.add_argument(
         "statio_name",
         help="Name of the station to be analyzed"
