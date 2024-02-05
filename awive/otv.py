@@ -422,7 +422,7 @@ def draw_vectors(image, new_list, old_list, masks):
     return output
 
 
-def main(config_path: str, video_identifier: str, show_video=False, debug=0):
+def run_otv(config_path: str, video_identifier: str, show_video=False, debug=0):
     """Basic example of OTV
 
     Processing for each frame
@@ -476,7 +476,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     print(
-        main(
+        run_otv(
             config_path=f'{args.path}/{args.statio_name}/config.json',
             video_identifier=args.video_identifier,
             show_video=args.video,
