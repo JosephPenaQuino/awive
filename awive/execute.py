@@ -15,7 +15,7 @@ def execute_method(method_name, station_name, video_identifier, config_path):
     if method_name == 'sti':
         ret = sti.main(config_path, video_identifier)
     elif method_name == 'otv':
-        ret = otv.main(config_path, video_identifier)
+        ret = otv.run_otv(config_path, video_identifier)
     else:
         ret = None
     elapsed_time = (time.process_time() - t)
