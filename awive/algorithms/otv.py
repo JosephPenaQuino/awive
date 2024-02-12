@@ -1,28 +1,47 @@
 """Optical Tracking Image Velocimetry."""
 
 import argparse
-import random
-import json
 import math
-import numpy as np
+import random
+from typing import NamedTuple, Optional
+
 import cv2
+import numpy as np
+from numpy.typing import NDArray
+from pydantic import BaseModel
+
+from awive.algorithms.image_velocimetry import ImageVelocimetry
+from awive.config import Config, ConfigOtv, ConfigRoi
 from awive.correct_image import Formatter
-from awive.loader import (get_loader, Loader)
-# from sti import applyMean
+from awive.loader import Loader, get_loader
 
 
 FOLDER_PATH = "examples/datasets"
 
 
+class Stats(NamedTuple):
+    """Stats of the algorithm."""
+
+    avg: float = 0
+    max_: float = 0
+    min_: float = 0
+    std_dev: float = 0
+    count: int = 0
+
+
 def get_magnitude(kp1, kp2):
     """Get the distance between two keypoints."""
-    # return math.sqrt((kp2.pt[1] - kp1.pt[1])**2 + (kp2.pt[0] - kp1.pt[0]) ** 2 )
+    # return math.sqrt((kp2.pt[1] - kp1.pt[1])**2 + \
+    # (kp2.pt[0] - kp1.pt[0]) ** 2 )
     return abs(kp2.pt[0] - kp1.pt[0])
 
 
-def get_angle(kp1, kp2):
+def get_angle(kp1, kp2) -> float:
     """Get angle between two key points."""
-    return math.atan2(kp2.pt[1] - kp1.pt[1] , kp2.pt[0] - kp1.pt[0]) *  180 / math.pi
+    return math.atan2(
+        kp2.pt[1] - kp1.pt[1],
+        kp2.pt[0] - kp1.pt[0]
+    ) * 180 / math.pi
 
 
 def _get_velocity(kp1, kp2, real_distance_pixel, time, fps):
@@ -32,88 +51,98 @@ def _get_velocity(kp1, kp2, real_distance_pixel, time, fps):
 
 
 def reject_outliers(data, m=2.):
+    """Reject outliers of data."""
     d = np.abs(data - np.median(data))
     mdev = np.median(d)
-    s = d/mdev if mdev else 0.
-    return data[s<m]
+    s = d / mdev if mdev else 0.
+    return data[s < m]
 
 
-def compute_stats(velocity, hist=False):
+def compute_stats(velocity, hist=False) -> Stats:
+    """Compute stats of list of velicities."""
     v = np.array(sum(velocity, []))
     v = reject_outliers(v)
     count = len(v)
     if count == 0:
-        return 0, 0, 0, 0, 0
-    avg = v.mean()
-    max_ = v.max()
-    min_ = v.min()
-    std_dev = np.std(v)
+        return Stats()
+    avg: float = v.mean()
+    max_: float = v.max()
+    min_: float = v.min()
+    std_dev: float = np.std(v)  # type: ignore
 
     if hist:
-        import matplotlib.pyplot as plt
-        plt.hist(v.astype(int))
-        plt.ylabel('Probability')
-        plt.xlabel('Data');
-        plt.show()
+        # import matplotlib.pyplot as plt
+        # plt.hist(v.astype(int))
+        # plt.ylabel('Probability')
+        # plt.xlabel('Data')
+        # plt.show()
 
-    return avg, max_, min_, std_dev, count
+    return Stats(avg, max_, min_, std_dev, count)
 
 
-class OTV():
+class LKParams(BaseModel):
+    """Lucas-Kanade parameters."""
+
+    winSize: tuple[int, int]
+    maxLevel: int
+    criteria: tuple[int, int, float]
+    flags: int
+    minEigThreshold: float
+
+
+class Otv(ImageVelocimetry):
     """Optical Tracking Image Velocimetry."""
 
-    def __init__(
-        self,
-        config_path: str,
-        video_identifier: str,
-        prev_gray: np.ndarray,
-        debug=0
-    ) -> None:
-        self._debug = debug
-        with open(config_path) as json_file:
-            root_config = json.load(json_file)[video_identifier]
-            config = root_config['otv']
-        self._partial_max_angle = config['partial_max_angle']
-        self._partial_min_angle = config['partial_min_angle']
-        self._final_max_angle = config['final_max_angle']
-        self._final_min_angle = config['final_min_angle']
-        self._final_min_distance = config['final_min_distance']
-        self._max_features = config['max_features']
-        self._radius = config['lk']['radius']
-        self._max_level = config['lk']['max_level']
-        self._step = config['region_step']
-        self._resolution = config['resolution']
-        self._pixel_to_real = config['pixel_to_real']
+    def __init__(self, config: Config, debug: bool) -> None:
+        """Initialize OTV."""
+        self.conf: ConfigOtv = config.otv
+        self._debug: bool = debug
+        self._partial_max_angle: float = self.conf.partial_max_angle
+        self._partial_min_angle: float = self.conf.partial_min_angle
+        self._final_max_angle: float = self.conf.final_max_angle
+        self._final_min_angle: float = self.conf.final_min_angle
+        self._final_min_distance: float = self.conf.final_min_distance
+        self._max_features: int = self.conf.max_features
+        self._radius: int = self.conf.lk.radius
+        self._max_level: int = self.conf.lk.max_level
+        self._step: int = self.conf.region_step
+        self._resolution: int = self.conf.resolution
+        self._pixel_to_real: float = self.conf.pixel_to_real
 
-        self._width = root_config["preprocessing"]['roi']['w2']  -root_config["preprocessing"]['roi']['w1']
-        self._height = root_config["preprocessing"]['roi']['h2'] - root_config["preprocessing"]['roi']['h1']
-        mask_path = config['mask_path']
-        self._regions = config['lines']
-        if len(mask_path) != 0:
-            self._mask = cv2.imread(mask_path, 0) > 1
+        roi: ConfigRoi = config.preprocessing.roi
+        self._width: int = roi.w2 - roi.w1
+        self._height: int = roi.h2 - roi.h1
+        self._regions: list[int] = self.conf.lines
+
+        # Load mask if exists
+        self._mask: Optional[NDArray] = None
+        if self.conf.mask_path:
+            self._mask = cv2.imread(self.conf.mask_path, 0) > 1  # type: ignore
             self._mask = cv2.resize(
                 self._mask.astype(np.uint8),
                 (self._height, self._width),
-                cv2.INTER_NEAREST
+                cv2.INTER_NEAREST  # type: ignore
             )
-        else:
-            self._mask = None
 
-        winsize = config['lk']['winsize']
+        # Load Lucas Kanade parameters
+        self.lk_params: LKParams = LKParams(
+            winSize=(self._radius, self._radius),
+            maxLevel=self._max_level,
+            criteria=(
+                cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
+                self.conf.lk.max_count,
+                self.conf.lk.epsilon
+            ),
+            flags=cv2.OPTFLOW_LK_GET_MIN_EIGENVALS,
+            minEigThreshold=self.conf.lk.min_eigen_threshold
+        )
 
-        self.lk_params = {
-            'winSize': (winsize, winsize),
-            'maxLevel': self._max_level,
-            'criteria': (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
-                         config['lk']['max_count'],
-                         config['lk']['epsilon']),
-            'flags': cv2.OPTFLOW_LK_GET_MIN_EIGENVALS,
-            'minEigThreshold': config['lk']['min_eigen_threshold']
-            }
-        self.prev_gray = prev_gray
+        # Load firt images
+        # self.prev_gray = prev_gray
 
     def _partial_filtering(self, kp1, kp2, max_distance):
-        magnitude = get_magnitude(kp1, kp2)  #only to limit the research window
+        # only to limit the research window
+        magnitude = get_magnitude(kp1, kp2)
         if magnitude > max_distance:
             return False
         angle = get_angle(kp1, kp2)
@@ -126,7 +155,7 @@ class OTV():
         return False
 
     def _final_filtering(self, kp1, kp2):
-        """Final filter of keypoints"""
+        """Final filter of keypoints."""
         magnitude = get_magnitude(kp1, kp2)
         if magnitude < self._final_min_distance:
             return False
@@ -138,7 +167,6 @@ class OTV():
         if self._final_min_angle <= angle <= self._final_max_angle:
             return True
         return False
-
 
     def _apply_mask(self, image):
         if self._mask is not None:
@@ -156,26 +184,25 @@ class OTV():
                 ret.append([])
         return ret
 
-
     def run(self, loader: Loader, formatter: Formatter, show_video=False):
-        """Execute OTV and get velocimetry"""
+        """Execute OTV and get velocimetry."""
         # initialze parametrers
         detector = cv2.FastFeatureDetector_create()
         previous_frame = None
-        keypoints_current = []
-        keypoints_start = []
-        time = []
-        keypoints_predicted = []
-        masks = []
+        keypts_curr: list[cv2.KeyPoint] = []  # current keypoints
+        keypoints_start: list[cv2.KeyPoint] = []
+        time: list[int] = []  # list of indices of Keypoints
+        keypts_pred: list[cv2.KeyPoint] = []  # predicted keypoints
+        masks: list[NDArray[np.uint8]] = []
 
-        valid = []
-        velocity_mem = []
-        keypoints_mem_current = []
-        keypoints_mem_predicted = []
-        velocity = []
-        angle = []
-        distance = []
-        path = []
+        valid: list[list[bool]] = []  # Indices of valid Keypoints
+        velocity_mem: list[list[float]] = []
+        keypoints_mem_current: list[cv2.KeyPoint] = []
+        keypoints_mem_predicted: list[cv2.KeyPoint] = []
+        velocity: list[list[float]] = []
+        angle: list[list[float]] = []
+        distance: list[list[float]] = []
+        path: list[list[int]] = []
         traj_map = np.zeros((1200, 900))
 
         # update width and height if needed
@@ -184,11 +211,11 @@ class OTV():
         if loader.image_shape[1] < self._height:
             self._height = loader.image_shape[1]
 
+        # This are not used. but idk why :c
+        # subregion_velocity = self._init_subregion_list(2, self._width)
+        # subregion_trajectories = self._init_subregion_list(1, self._width)
 
-        subregion_velocity = self._init_subregion_list(2, self._width)
-        subregion_trajectories = self._init_subregion_list(1, self._width)
-
-        regions = list([] for _ in range(len(self._regions)))
+        regions: list[list[float]] = [[] for _ in range(len(self._regions))]
 
         # Initialization
         for i in range(loader.total_frames):
@@ -202,22 +229,23 @@ class OTV():
         while loader.has_images():
             # get current frame
             current_frame = loader.read()
-            current_frame = formatter.apply_distortion_correction(current_frame)
+            current_frame = formatter.apply_distortion_correction(
+                current_frame)
             current_frame = formatter.apply_roi_extraction(current_frame)
             # current_frame = self._apply_mask(current_frame)
 
             # get features as a list of KeyPoints
-            keypoints = list(detector.detect(current_frame, None))
-            # print(f"{type(keypoints)=}")
-            # print(f"{len(keypoints)=}")
-            # print(f"{type(keypoints[0])=}")
+            keypoints: list[cv2.KeyPoint] = detector.detect(
+                current_frame,
+                None
+            )
             random.shuffle(keypoints)
 
             # update lot of lists
             if previous_frame is None:
                 for i, keypoint in enumerate(keypoints):
-                    if len(keypoints_current) < self._max_features:
-                        keypoints_current.append(keypoint)
+                    if len(keypts_curr) < self._max_features:
+                        keypts_curr.append(keypoint)
                         keypoints_start.append(keypoint)
                         time.append(loader.index)
                         valid[loader.index].append(False)
@@ -225,8 +253,8 @@ class OTV():
                         path[loader.index].append(i)
             else:
                 for i, keypoint in enumerate(reversed(keypoints)):
-                    if len(keypoints_current) < self._max_features:
-                        keypoints_current.append(keypoint)
+                    if len(keypts_curr) < self._max_features:
+                        keypts_curr.append(keypoint)
                         keypoints_start.append(keypoint)
                         time.append(loader.index)
                         valid[loader.index].append(False)
@@ -235,54 +263,54 @@ class OTV():
             if self._debug >= 1:
                 print('Analyzing frame:', loader.index)
             if previous_frame is not None:
-                pts1 = cv2.KeyPoint_convert(keypoints_current)
-                pts2, st, err = cv2.calcOpticalFlowPyrLK(
+                pts1 = cv2.KeyPoint_convert(keypts_curr)
+                pts2, st, _ = cv2.calcOpticalFlowPyrLK(
                     previous_frame,
                     current_frame,
                     pts1,
                     None,
-                    **self.lk_params
-                    )
+                    **self.lk_params.dict()
+                )
 
                 # add predicted by Lucas-Kanade new keypoints
-                keypoints_predicted.clear()
+                keypts_pred.clear()
                 for pt2 in pts2:
-                    keypoints_predicted.append(cv2.KeyPoint(
+                    keypts_pred.append(cv2.KeyPoint(
                         pt2[0],
                         pt2[1],
                         1.0
-                        ))
+                    ))
 
                 max_distance = self._max_level * (2 * self._radius + 1)
                 max_distance /= self._resolution
 
                 k = 0
 
-                for i, keypoint in enumerate(keypoints_current):
+                for i, keypoint in enumerate(keypts_curr):
                     partial_filter = self._partial_filtering(
                         keypoint,
-                        keypoints_predicted[i],
+                        keypts_pred[i],
                         max_distance
-                        )
+                    )
                     # check if the trajectory finished or the vector is invalid
                     if not (st[i] and partial_filter):
                         final_filter = self._final_filtering(
                             keypoints_start[i],
-                            keypoints_current[i]
-                            )
+                            keypts_curr[i]
+                        )
                         # check if it is a valid trajectory
                         if final_filter:
                             velocity_i = _get_velocity(
                                 keypoints_start[i],
-                                keypoints_current[i],
+                                keypts_curr[i],
                                 self._pixel_to_real / self._resolution,
                                 loader.index - time[i],
                                 loader.fps
-                                )
-                            angle_i = get_angle(
+                            )
+                            angle_i: float = get_angle(
                                 keypoints_start[i],
-                                keypoints_current[i]
-                                )
+                                keypts_curr[i]
+                            )
 
                             xx0 = int(keypoints_start[i].pt[1])
                             yy0 = int(keypoints_start[i].pt[0])
@@ -307,19 +335,22 @@ class OTV():
                                 valid[j][pos] = True
                                 velocity_mem[j][pos] = velocity_i
                                 pos = path[j][pos]
-                                j-=1
+                                j -= 1
 
                             velocity[loader.index].append(velocity_i)
                             angle[loader.index].append(angle_i)
                             distance[loader.index].append(
-                                velocity_i * (loader.index - time[i]) / loader.fps)
+                                velocity_i *
+                                (loader.index - time[i]) /
+                                loader.fps
+                            )
 
                         continue
 
                     # Add new displacement vector
-                    keypoints_current[k] = keypoints_current[i]
+                    keypts_curr[k] = keypts_curr[i]
                     keypoints_start[k] = keypoints_start[i]
-                    keypoints_predicted[k] = keypoints_predicted[i]
+                    keypts_pred[k] = keypts_pred[i]
                     path[loader.index].append(i)
                     velocity_mem[loader.index].append(0)
                     valid[loader.index].append(False)
@@ -328,40 +359,39 @@ class OTV():
 
                 # Only keep until the kth keypoint in order to filter invalid
                 # vectors
-                keypoints_current = keypoints_current[:k]
+                keypts_curr = keypts_curr[:k]
                 keypoints_start = keypoints_start[:k]
-                keypoints_predicted = keypoints_predicted[:k]
+                keypts_pred = keypts_pred[:k]
                 time = time[:k]
 
-
             if self._debug >= 1:
-                print('number of trajectories:', len(keypoints_current))
+                print('number of trajectories:', len(keypts_curr))
 
             if show_video:
                 if previous_frame is not None:
-                    color_frame = cv2.cvtColor(current_frame, cv2.COLOR_GRAY2RGB)
+                    color_frame = cv2.cvtColor(
+                        current_frame, cv2.COLOR_GRAY2RGB)
                     output = draw_vectors(
                         color_frame,
-                        keypoints_predicted,
-                        keypoints_current,
+                        keypts_pred,
+                        keypts_curr,
                         masks
-                        )
+                    )
                     cv2.imshow("sparse optical flow", output)
                     if cv2.waitKey(10) & 0xFF == ord('q'):
                         break
             previous_frame = current_frame.copy()
-            keypoints_mem_current.append(keypoints_current)
-            keypoints_mem_predicted.append(keypoints_predicted)
+            keypoints_mem_current.append(keypts_curr)
+            keypoints_mem_predicted.append(keypts_pred)
 
-            # TODO: I guess the swap is not needed such as in the next iteration
-            # the keypoints_predicted will be cleaned
-            if len(keypoints_predicted) != 0:
-                keypoints_predicted, keypoints_current = keypoints_current, keypoints_predicted
+            # TODO: I guess the swap is not needed such as in the next
+            # iteration the keypoints_predicted will be cleaned
+            if len(keypts_pred) != 0:
+                keypts_pred, keypts_curr = keypts_curr, keypts_pred
         np.save('traj.npy', traj_map)
 
         loader.end()
-        if show_video:
-            cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
         avg, max_, min_, std_dev, count = compute_stats(velocity, show_video)
 
         if self._debug >= 1:
@@ -371,11 +401,11 @@ class OTV():
             print('std_dev:', round(std_dev, 2))
             print('count:', count)
 
-        out_json = {}
+        out_json: dict = {}
         for i, sv in enumerate(regions):
             out_json[str(i)] = {}
             t = np.array(sv)
-            t = t[t!=0]
+            t = t[t != 0]
             if len(t) != 0:
                 t = reject_outliers(t)
                 m = t.mean()
@@ -411,7 +441,6 @@ def draw_vectors(image, new_list, old_list, masks):
     if len(masks) > 3:
         masks.pop(0)
 
-
     # generate image with mask
     total_mask = np.zeros(mask.shape, dtype=np.uint8)
     for mask_ in masks:
@@ -420,15 +449,23 @@ def draw_vectors(image, new_list, old_list, masks):
     return output
 
 
-def main(config_path: str, video_identifier: str, show_video=False, debug=0):
-    """Basic example of OTV"""
-    loader = get_loader(config_path, video_identifier)
-    formatter = Formatter(config_path, video_identifier)
-    loader.has_images()
-    image = loader.read()
-    prev_gray = formatter.apply_distortion_correction(image)
-    prev_gray = formatter.apply_roi_extraction(prev_gray)
-    otv = OTV(config_path, video_identifier, prev_gray, debug)
+def main(
+    config_path: str,
+    video_identifier: str,
+    show_video: bool = False,
+    debug: bool = False
+):
+    """Execute a basic example of OTV."""
+    loader: Loader = get_loader(config_path, video_identifier)
+    formatter: Formatter = Formatter(config_path, video_identifier)
+
+    # loader.has_images()
+    # image = loader.read()
+    # prev_gray = formatter.apply_distortion_correction(image)
+    # prev_gray = formatter.apply_roi_extraction(prev_gray)
+
+    config = Config.from_json(config_path, video_identifier)
+    otv = Otv(config, debug)
     return otv.run(loader, formatter, show_video)
 
 

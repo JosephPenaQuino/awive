@@ -8,8 +8,8 @@ from pathlib import Path
 class Position(BaseModel):
     """Pixels or meters."""
 
-    x: list[int]
-    y: list[int]
+    x: list[int | float]
+    y: list[int | float]
 
 
 class GroundTruth(BaseModel):
