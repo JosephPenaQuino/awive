@@ -52,11 +52,12 @@ def compute_stats(velocity, hist=False):
     std_dev = np.std(v)
 
     if hist:
-        import matplotlib.pyplot as plt
-        plt.hist(v.astype(int))
-        plt.ylabel('Probability')
-        plt.xlabel('Data');
-        plt.show()
+        pass
+        # import matplotlib.pyplot as plt
+        # plt.hist(v.astype(int))
+        # plt.ylabel('Probability')
+        # plt.xlabel('Data');
+        # plt.show()
 
     return avg, max_, min_, std_dev, count
 
