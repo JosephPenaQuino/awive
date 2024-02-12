@@ -2,7 +2,6 @@
 import cv2 as cv
 import numpy as np
 
-from matplotlib import pyplot as plt
 from utils import ImageLoader
 
 imageDataset = '/home/joseph/Documents/Thesis/Dataset/ssivDataset/images'

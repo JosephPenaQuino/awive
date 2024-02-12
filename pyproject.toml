@@ -10,13 +10,11 @@ packages = [{include = "awive"}]
 [tool.poetry.dependencies]
 python = "~3.9.2 || ~3.11.2"
 opencv-python = "^4.6.0.66"
-matplotlib = "^3.6.2"
-pandas = "^1.5.1"
 pydantic = ">=1.10.2"
-wget = "^3.2"
-requests = "^2.28.1"
-types-requests = "^2.28.11.5"
-npyplotter = {git = "https://github.com/JosephPenaQuino/npy-plotter.git", rev = "v0.1.2"}
+
+[tool.poetry.group.dev.dependencies]
+types-requests = "^2.31.0.20240125"
+requests = "^2.31.0"
 
 [build-system]
 requires = ["poetry-core"]
