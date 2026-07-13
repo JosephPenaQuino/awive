@@ -70,10 +70,12 @@ class Formatter:
         self._rotation_angle = self.preprocessing.rotate_image
         self._rotation_matrix = self._get_rotation_matrix()
         self._slice = tuple(
-            slice(x[0], x[1]) for x in zip(*self.preprocessing.roi)
+            slice(x[0], x[1])
+            for x in zip(*self.preprocessing.roi, strict=True)
         )
         self._pre_slice = tuple(
-            slice(x[0], x[1]) for x in zip(*self.preprocessing.pre_roi)
+            slice(x[0], x[1])
+            for x in zip(*self.preprocessing.pre_roi, strict=True)
         )
         self._lens_params = None
 

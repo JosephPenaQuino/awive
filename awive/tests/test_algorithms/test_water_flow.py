@@ -162,7 +162,7 @@ def test_water_flow_negative_depths() -> None:
         current_depth=0.5,
     )
     # Should not raise error and should return a value
-    assert isinstance(wf, (float, np.floating))
+    assert isinstance(wf, float | np.floating)
     assert wf >= 0, f"Flow should be non-negative, got {wf}"
 
 
@@ -242,7 +242,7 @@ def test_water_flow_single_measurement() -> None:
     )
 
     # Should handle single point without error
-    assert isinstance(wf, (float, np.floating))
+    assert isinstance(wf, float | np.floating)
     assert wf > 0
 
 
@@ -265,5 +265,5 @@ def test_water_flow_wide_profile() -> None:
     )
 
     # Should handle many points and produce reasonable result
-    assert isinstance(wf, (float, np.floating))
+    assert isinstance(wf, float | np.floating)
     assert wf > 0, f"Flow should be positive, got {wf}"

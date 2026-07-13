@@ -99,7 +99,7 @@ class STIV:
 
             assert len(self.lines) == len(self.lines_range)
             for i, (line_pos, line_range) in enumerate(
-                zip(self.lines, self.lines_range)
+                zip(self.lines, self.lines_range, strict=True)
             ):
                 row = image[line_pos, line_range[0] : line_range[1]]
                 stis[i].append(row)

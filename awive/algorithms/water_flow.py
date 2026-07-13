@@ -120,7 +120,7 @@ def get_water_flow(
     q_fine = vels_fine * new_depths_fine * (roughness) / (roughness + 1)
 
     # Compute water flow by integrating q over the width
-    water_flow = np.trapz(q_fine, x_fine)
+    water_flow = np.trapezoid(q_fine, x_fine)
 
     # Apply linear correction
     return a_coeff * water_flow + b_coeff
